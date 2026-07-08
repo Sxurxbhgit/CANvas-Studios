@@ -1,0 +1,3238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web CANdb++ Studio Pro</title>
+    <style>
+        :root {
+            --bg-base: #0f172a; --bg-panel: #1e293b; --bg-hover: #334155;
+            --border-color: #334155; --accent: #3b82f6; --text-main: #f8fafc;
+            --text-muted: #94a3b8; --icon-net: #ef4444; --icon-node: #a855f7;
+            --icon-msg: #f59e0b; --icon-sig: #10b981; --icon-indep: #06b6d4;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-mono: 'Consolas', 'Courier New', monospace;
+            --success: #059669; --error: #dc2626; --warn: #d97706;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--font-main); background-color: var(--bg-base); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* --- Toolbar --- */
+        .toolbar { height: 50px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; gap: 15px; flex-shrink: 0; }
+        .toolbar h1 { font-size: 1.1rem; margin-right: 10px; font-weight: 600; color: #cbd5e1; }
+        .toolbar-btn { background: var(--bg-hover); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .toolbar-btn:hover { background: var(--accent); border-color: var(--accent); }
+        .toolbar-btn.primary { background: var(--success); border-color: var(--success); }
+        .toolbar-btn.primary:hover { background: #047857; }
+        #fileInput { display: none; }
+        .toolbar-divider { width: 1px; height: 24px; background: var(--border-color); }
+        .view-switch { display: flex; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+        .view-btn { background: transparent; border: none; color: var(--text-muted); padding: 6px 14px; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: 0.2s; }
+        .view-btn:hover { color: var(--text-main); }
+        .view-btn.active { background: var(--accent); color: #fff; }
+        .file-badge { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
+        .problems-toggle { margin-left: auto; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; }
+        .problems-toggle:hover { background: var(--bg-hover); }
+        .problems-toggle .count-err { color: #fca5a5; font-weight: 700; }
+        .problems-toggle .count-warn { color: #fcd34d; font-weight: 700; }
+
+        /* --- Workspace Layout --- */
+        .workspace { display: flex; flex: 1; min-height: 0; }
+        .main-column { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+        /* --- Left Pane: Tree View --- */
+        .sidebar { width: 320px; background-color: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 10px 15px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border-color); background: #141e2e; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-dbsel { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border-color); background: #121c2c; }
+        .sidebar-dbsel select { flex: 1; min-width: 0; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 6px; border-radius: 4px; font-size: 0.75rem; font-family: var(--font-mono); outline: none; }
+        .sidebar-dbsel select:focus { border-color: var(--accent); }
+        .sidebar-search { padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
+        .sidebar-search input { width: 100%; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 8px; border-radius: 4px; font-size: 0.8rem; outline: none; }
+        .sidebar-search input:focus { border-color: var(--accent); }
+        .tree-container { flex: 1; overflow-y: auto; padding: 10px 0; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-hover); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        .tree-item { padding: 4px 10px 4px 15px; cursor: pointer; display: flex; align-items: center; font-size: 0.85rem; user-select: none; white-space: nowrap; border-left: 2px solid transparent; gap: 4px; }
+        .tree-item:hover { background-color: rgba(255,255,255,0.05); }
+        .tree-item.active { background-color: var(--bg-hover); border-left-color: var(--accent); color: white; }
+        .tree-item.dimmed { display: none; }
+
+        .tree-item-icon { margin-right: 2px; font-size: 1rem; width: 16px; text-align: center; flex-shrink: 0; }
+        .icon-net { color: var(--icon-net); } .icon-node { color: var(--icon-node); } .icon-m { color: var(--icon-msg); } .icon-s { color: var(--icon-sig); }
+        .icon-indep { color: var(--icon-indep); }
+        .icon-signal {
+            display: inline-block; width: 13px; height: 13px; flex-shrink: 0; vertical-align: middle;
+            background-color: var(--icon-sig);
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 16h4v-8h4v8h4v-8h4v8h4'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 16h4v-8h4v8h4v-8h4v8h4'/%3E%3C/svg%3E");
+            -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+            -webkit-mask-position: center; mask-position: center;
+            -webkit-mask-size: contain; mask-size: contain;
+        }
+        .tree-item-icon .icon-signal { margin: 0 auto; }
+        .tree-label { overflow: hidden; text-overflow: ellipsis; }
+        .tree-badge { margin-left: auto; font-size: 0.6rem; background: var(--bg-hover); color: var(--text-muted); padding: 1px 5px; border-radius: 8px; flex-shrink: 0; }
+        .tree-badge.mux { background: rgba(168, 85, 247, 0.25); color: #d8b4fe; }
+        .tree-item.err-item { border-left-color: var(--error); }
+        .tree-item.warn-item .tree-label { text-decoration: underline dotted var(--warn); }
+
+        .tree-children { display: block; padding-left: 18px; }
+        .tree-children.collapsed { display: none; }
+
+        .tree-toggle { margin-right: 4px; margin-left: -12px; font-size: 0.65rem; color: var(--text-muted); width: 14px; text-align: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+        .tree-toggle:hover { color: var(--text-main); }
+        .tree-item.active .tree-toggle { color: white; }
+
+        /* --- Right Pane: Editor --- */
+        .editor-pane { flex: 1; background-color: var(--bg-base); display: flex; flex-direction: column; position: relative; min-height: 0; }
+
+        .editor-tabs { display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        .tab-btn { padding: 10px 20px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: 600; border-bottom: 2px solid transparent; }
+        .tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
+        .tab-btn.active { border-bottom-color: var(--accent); color: var(--text-main); }
+
+        .editor-content { flex: 1; padding: 25px; overflow-y: auto; display: none; }
+        .editor-content.active { display: flex; flex-direction: column; align-items: flex-start; }
+
+        .empty-state { color: var(--text-muted); margin: auto; font-size: 1rem; display: flex; flex-direction: column; align-items: center; gap: 10px; height: 100%; justify-content: center; width: 100%; }
+
+        .editor-form { width: 100%; max-width: 800px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+        .editor-header { font-size: 1.1rem; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .form-group input, .form-group select, .form-group textarea { background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 10px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85rem; outline: none; transition: 0.2s; }
+        .form-group textarea { font-family: var(--font-main); resize: vertical; min-height: 50px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+        .form-group .field-error { font-size: 0.7rem; color: #fca5a5; }
+        .form-group input.field-invalid { border-color: var(--error); }
+
+        .receiver-list { display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; }
+        .receiver-chip { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; padding: 3px 8px; border-radius: 12px; background: var(--bg-hover); cursor: pointer; user-select: none; border: 1px solid transparent; }
+        .receiver-chip.checked { background: rgba(59,130,246,0.25); border-color: var(--accent); color: #93c5fd; }
+        .receiver-chip input { display: none; }
+
+        .btn-sm { background: var(--bg-hover); color: var(--text-main); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: 0.2s; }
+        .btn-sm:hover { background: var(--text-muted); color: #fff; }
+        .btn-sm.primary { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); color: #93c5fd; }
+        .btn-sm.primary:hover { background: var(--accent); color: #fff; }
+        .btn-sm.danger { background: rgba(220, 38, 38, 0.1); border-color: var(--error); color: #fca5a5; }
+        .btn-sm.danger:hover { background: var(--error); color: #fff; }
+
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        .data-table th, .data-table td { border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; }
+        .data-table th { background: var(--bg-base); color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        .data-table input { width: 100%; background: transparent; border: none; color: var(--text-main); font-family: var(--font-mono); outline: none; }
+        .data-table tr:hover { background: rgba(255,255,255,0.02); }
+
+        .layout-matrix { display: grid; grid-template-columns: 45px repeat(8, 1fr); gap: 1px; background: var(--border-color); border: 1px solid var(--border-color); width: 100%; max-width: 800px; margin-top: 15px; font-family: var(--font-mono); font-size: 0.7rem; border-radius: 4px; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .matrix-cell { background: var(--bg-base); position: relative; min-height: 45px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .matrix-header { background: #141e2e; color: var(--text-muted); font-weight: bold; min-height: 30px; }
+        .matrix-byte { background: #141e2e; color: var(--text-muted); font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); }
+
+        .bit-num { position: absolute; top: 2px; left: 2px; font-size: 0.55rem; color: #475569; z-index: 10; pointer-events: none; }
+        .matrix-cell.has-signal .bit-num { color: #fff; background: rgba(0,0,0,0.5); padding: 1px 3px; border-radius: 2px; }
+
+        .sig-block { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: bold; color: #fff; text-shadow: 0px 1px 2px rgba(0,0,0,0.8); overflow: hidden; white-space: nowrap; text-overflow: clip; z-index: 1; opacity: 0.95; transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; }
+        .sig-block:hover { z-index: 20; transform: scale(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid #fff; overflow: visible; border-radius: 4px; padding: 0 5px; }
+        .sig-block.overlap { background: repeating-linear-gradient(45deg, rgba(220, 38, 38, 0.8), rgba(220, 38, 38, 0.8) 5px, rgba(153, 27, 27, 0.8) 5px, rgba(153, 27, 27, 0.8) 10px) !important; border-color: #ef4444; z-index: 5; }
+
+        .edge-badge { position: absolute; bottom: 2px; right: 2px; font-size: 0.45rem; font-weight: 800; background: rgba(0,0,0,0.6); padding: 1px 3px; border-radius: 3px; line-height: 1; letter-spacing: 0.5px; z-index: 3; box-shadow: 0 1px 2px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); }
+        .mux-badge { position: absolute; top: 2px; right: 2px; font-size: 0.45rem; font-weight: 800; background: rgba(168,85,247,0.85); padding: 1px 3px; border-radius: 3px; line-height: 1; z-index: 3; }
+
+        .layout-legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; font-size: 0.8rem; color: var(--text-main); background: var(--bg-panel); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); width: 100%; max-width: 800px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+        .legend-color { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.2); }
+
+        /* --- Problems Panel --- */
+        .problems-panel { height: 220px; background: var(--bg-panel); border-top: 1px solid var(--border-color); display: none; flex-direction: column; flex-shrink: 0; }
+        .problems-panel.open { display: flex; }
+        .problems-panel-header { padding: 8px 15px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #141e2e; }
+        .problems-list { flex: 1; overflow-y: auto; }
+        .problem-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 15px; font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; }
+        .problem-row:hover { background: rgba(255,255,255,0.04); }
+        .problem-icon { flex-shrink: 0; font-weight: 800; width: 16px; text-align: center; }
+        .problem-row.error .problem-icon { color: var(--error); }
+        .problem-row.warning .problem-icon { color: var(--warn); }
+        .problem-loc { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.72rem; margin-left: auto; flex-shrink: 0; padding-left: 10px; }
+        .problems-empty { color: var(--text-muted); padding: 20px; text-align: center; font-size: 0.85rem; }
+
+        /* --- Modal --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; width: 440px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .modal-box.wide { width: 680px; }
+        .modal-header { padding: 14px 18px; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center; }
+        .modal-close { cursor: pointer; color: var(--text-muted); font-size: 1.1rem; }
+        .modal-close:hover { color: var(--text-main); }
+        .modal-body { padding: 18px; font-size: 0.85rem; color: var(--text-main); overflow-y: auto; line-height: 1.5; }
+        .modal-body input, .modal-body select { width: 100%; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 10px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85rem; outline: none; margin-top: 8px; }
+        .modal-body input:focus { border-color: var(--accent); }
+        .modal-footer { padding: 12px 18px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-btn { padding: 7px 16px; border-radius: 4px; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-hover); color: var(--text-main); }
+        .modal-btn.primary { background: var(--accent); border-color: var(--accent); }
+        .modal-btn.danger { background: var(--error); border-color: var(--error); }
+        .modal-error-text { color: #fca5a5; font-size: 0.78rem; margin-top: 6px; min-height: 14px; }
+
+        /* --- MATLAB Export --- */
+        .ml-label { display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+        .ml-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .ml-actions .btn-sm { flex: 1; padding: 7px 10px; }
+        .ml-list { border: 1px solid var(--border-color); border-radius: 6px; height: 280px; overflow-y: auto; margin-top: 10px; background: var(--bg-base); }
+        .ml-item { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.15s; }
+        .ml-item:last-child { border-bottom: none; }
+        .ml-item:hover { background: rgba(255,255,255,0.04); }
+        .ml-item label { cursor: pointer; width: 100%; margin-left: 10px; font-size: 0.85rem; font-family: var(--font-mono); user-select: none; color: var(--text-main); }
+        .ml-item input[type="checkbox"] { cursor: pointer; width: 15px; height: 15px; accent-color: var(--accent); margin: 0; flex-shrink: 0; }
+        .ml-empty { padding: 20px; color: var(--text-muted); text-align: center; font-style: italic; font-size: 0.82rem; }
+        .ml-status { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 8px; display: block; }
+        .ml-status b { color: #93c5fd; }
+
+        /* --- Toasts --- */
+        .toast-stack { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 2000; }
+        .toast { background: var(--bg-panel); border: 1px solid var(--border-color); border-left: 4px solid var(--accent); padding: 10px 16px; border-radius: 4px; font-size: 0.82rem; box-shadow: var(--shadow-sm); min-width: 220px; animation: toastIn 0.2s ease; }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--error); }
+        .toast.warning { border-left-color: var(--warn); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <header class="toolbar">
+        <h1>CANdb++ Web</h1>
+        <div class="view-switch">
+            <button class="view-btn active" id="viewBtnDb" onclick="switchView('db')">🗄 Database</button>
+            <button class="view-btn" id="viewBtnTrace" onclick="switchView('trace')">📡 Trace</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <button class="toolbar-btn" onclick="promptNewDatabase()">📄 New Database</button>
+        <button class="toolbar-btn" onclick="document.getElementById('fileInput').click()">📂 Open DBC</button>
+        <input type="file" id="fileInput" accept=".dbc" multiple>
+        <div class="toolbar-divider"></div>
+        <span class="file-badge" id="fileBadge">No file loaded</span>
+        <button class="toolbar-btn" onclick="openAttrDefManager()" style="margin-left: auto;">🏷 Attributes</button>
+        <button class="toolbar-btn" onclick="openMatlabExport()">📐 MATLAB Export</button>
+        <button class="toolbar-btn primary" onclick="requestExport()">💾 Save Database</button>
+        <div class="problems-toggle" onclick="toggleProblemsPanel()">
+            <span>⚠ Problems:</span>
+            <span class="count-err" id="errCount">0</span>
+            <span class="count-warn" id="warnCount">0</span>
+        </div>
+    </header>
+
+    <div class="workspace" id="dbWorkspace">
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span>Database Explorer</span>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn-sm primary" onclick="addNode()" title="Add New Node">+ Node</button>
+                    <button class="btn-sm" onclick="addIndependentSignal()" title="Add a signal not tied to any message">+ Signal</button>
+                </div>
+            </div>
+            <div class="sidebar-dbsel">
+                <select id="dbFileSel" onchange="switchActiveDb(parseInt(this.value, 10))" title="Active database"></select>
+                <button class="btn-sm danger" onclick="closeActiveDb()" title="Close active database">✕</button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="treeSearch" placeholder="Filter nodes, messages, signals..." oninput="renderTree()">
+            </div>
+            <div class="tree-container" id="treeContainer">
+                <div class="empty-state" style="font-size: 0.85rem;">Create or Open a database</div>
+            </div>
+        </aside>
+
+        <div class="main-column">
+            <main class="editor-pane" id="editorPane">
+
+                <div class="empty-state" id="emptyState">
+                    <i class="icon-signal" style="width: 48px; height: 48px; background-color: var(--text-muted);"></i>
+                    Select a Node, Message, or Signal to edit properties
+                </div>
+
+                <div class="editor-tabs" id="editorTabs" style="display: none;">
+                    <button class="tab-btn active" onclick="switchTab('attributes')">Properties</button>
+                    <button class="tab-btn" id="tabObjAttrs" onclick="switchTab('objattrs')">Attributes</button>
+                    <button class="tab-btn" id="tabVals" onclick="switchTab('values')">Value Tables</button>
+                    <button class="tab-btn" id="tabLayout" onclick="switchTab('layout')">Matrix Layout</button>
+                </div>
+
+                <div class="editor-content active" id="content_attributes"></div>
+
+                <div class="editor-content" id="content_objattrs"></div>
+
+                <div class="editor-content" id="content_values">
+                    <div class="editor-form" style="max-width: 600px;">
+                        <div class="editor-header">
+                            <span>Value Descriptions (Enum)</span>
+                            <button class="btn-sm primary" onclick="addValueTableRow()">+ Add Value</button>
+                        </div>
+                        <table class="data-table" id="valTable">
+                            <thead><tr><th width="80px">Raw</th><th>Description</th><th width="40px"></th></tr></thead>
+                            <tbody id="valTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="editor-content" id="content_layout">
+                    <div class="editor-form" style="max-width: none;">
+                        <div class="editor-header">Payload Bit Layout</div>
+                        <div class="layout-matrix" id="layoutMatrix"></div>
+                        <div class="layout-legend" id="layoutLegend"></div>
+                    </div>
+                </div>
+
+            </main>
+
+            <div class="problems-panel" id="problemsPanel">
+                <div class="problems-panel-header">
+                    <span>Problems</span>
+                    <span class="modal-close" onclick="toggleProblemsPanel()">✕</span>
+                </div>
+                <div class="problems-list" id="problemsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span id="modalTitle">Title</span>
+                <span class="modal-close" onclick="closeModal()">✕</span>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <div class="toast-stack" id="toastStack"></div>
+
+<script>
+    /* =========================================================================
+       APPLICATION STATE
+       db.nodes: string[]
+       db.nodeComments: { [nodeName]: string }
+       db.messages: [{
+         id, rawId, isExt, name, dlc, node, comment, attrs: {name: value},
+         signals: [{
+           name, start, len, order('0'|'1'), type('+'|'-'), factor, offset, min, max, unit,
+           comment, muxType('none'|'M'|'m'), muxValue(int|null), receivers: string[], valTable: {}
+         }]
+       }]
+       db.valueTablesRaw: string[]   -- passthrough VAL_TABLE_ lines, preserved verbatim on export
+       parseIssues: [{severity, message, line}]  -- syntax problems found while parsing raw text
+    ========================================================================= */
+    let db = { version: "", nodes: [], nodeComments: {}, messages: [], valueTablesRaw: [], attrDefs: {}, netAttrs: {}, nodeAttrs: {}, attrRaw: [] };
+    let parseIssues = [];
+
+    /* ---- Multi-database registry -------------------------------------------------
+       Many DBC files can be loaded at once (dbFiles). Exactly one is "active":
+       the global `db` always points at the active entry's object, so the whole
+       Database view (tree, editors, validation, export) works on it unchanged.
+       The Trace tool and Plotter decode against ALL loaded files, active first. */
+    let dbFiles = [];        // [{ name, db, parseIssues }]
+    let activeDbIndex = -1;
+    let suppressParseToasts = false;
+
+    function allDbEntries() {
+        return dbFiles.length ? dbFiles : [{ name: loadedFileName || 'Untitled database', db: db, parseIssues: parseIssues }];
+    }
+
+    function registerCurrentDb(name) {
+        dbFiles.push({ name: name, db: db, parseIssues: parseIssues });
+        activeDbIndex = dbFiles.length - 1;
+        renderDbSelector();
+    }
+
+    function renderDbSelector() {
+        const sel = document.getElementById('dbFileSel');
+        if (!sel) return;
+        if (dbFiles.length === 0) { sel.innerHTML = '<option>No database loaded</option>'; return; }
+        sel.innerHTML = dbFiles.map((e, i) =>
+            `<option value="${i}" ${i === activeDbIndex ? 'selected' : ''}>${escapeHtml(e.name)} (${e.db.messages.filter(m => !m.isIndependent).length} msgs)</option>`
+        ).join('');
+    }
+
+    function switchActiveDb(idx) {
+        if (idx < 0 || idx >= dbFiles.length) return;
+        activeDbIndex = idx;
+        const e = dbFiles[idx];
+        db = e.db;
+        parseIssues = e.parseIssues;
+        loadedFileName = e.name;
+        document.getElementById('fileBadge').innerText = e.name;
+        activeType = null; activeMsgIndex = null; activeSigIndex = null; activeNodeName = null;
+        renderTree();
+        showEmptyState();
+        runValidation();
+        renderDbSelector();
+        if (typeof TR !== 'undefined' && TR.built) traceRebuildDbMaps();
+    }
+
+    // Returns the app to the same generic home state shown on first open:
+    // no databases loaded, empty explorer, empty editor, zero problems.
+    function resetToHomeState() {
+        db = { version: "", nodes: [], nodeComments: {}, messages: [], valueTablesRaw: [], attrDefs: {}, netAttrs: {}, nodeAttrs: {}, attrRaw: [] };
+        parseIssues = [];
+        dbFiles = [];
+        activeDbIndex = -1;
+        loadedFileName = null;
+        activeType = null; activeMsgIndex = null; activeSigIndex = null; activeNodeName = null;
+        document.getElementById('fileBadge').innerText = 'No file loaded';
+        renderTree();
+        showEmptyState();
+        runValidation();
+        renderDbSelector();
+        if (typeof TR !== 'undefined' && TR.built) traceRebuildDbMaps();
+    }
+
+    function closeActiveDb() {
+        if (dbFiles.length === 0) return;
+        const name = dbFiles[activeDbIndex].name;
+        confirmDialog('Close Database', `Close <b>${escapeHtml(name)}</b>? Unsaved changes to it will be lost. Other loaded databases stay open.`, () => {
+            dbFiles.splice(activeDbIndex, 1);
+            if (dbFiles.length === 0) { resetToHomeState(); }
+            else { switchActiveDb(Math.max(0, activeDbIndex - 1)); }
+            showToast(`Closed ${name}.`, 'success');
+        }, 'Close');
+    }
+    let activeType = null;
+    let activeMsgIndex = null;
+    let activeSigIndex = null;
+    let activeNodeName = null;
+    let loadedFileName = null;
+
+    const sigColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#78716c'];
+    const IDENT_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+    // DBC byte-order convention: '1' = Intel / little-endian (start bit is the LSB, bits count UP).
+    // '0' = Motorola / big-endian (start bit is the MSB, bits zig-zag through the DBC bit-numbering scheme).
+    // Returns the bit indices in traversal order, first-to-last (first = start bit).
+    function computeSignalBits(sig) {
+        const bits = [];
+        if (sig.order === '1') {
+            for (let i = 0; i < sig.len; i++) bits.push(sig.start + i);
+        } else {
+            let curr = sig.start;
+            for (let i = 0; i < sig.len; i++) {
+                bits.push(curr);
+                if (curr % 8 === 0) curr += 15; else curr -= 1;
+            }
+        }
+        return bits;
+    }
+
+    function isIndependentMsg(msg) { return !!(msg && msg.isIndependent); }
+
+    // Resolves a raw DBC message id (as written in VAL_/CM_/BA_ lines) to a message object.
+    // Vector's independent-signal container uses the reserved raw id 0xC0000000 (3221225472),
+    // which would otherwise mask down to 0 and collide with a legitimate message id 0.
+    function findMsgByRawId(rawIdStr) {
+        const raw = parseInt(rawIdStr, 10) >>> 0;
+        if (raw === 0xC0000000) return db.messages.find(m => m.isIndependent);
+        const masked = raw & 0x1FFFFFFF;
+        return db.messages.find(m => !m.isIndependent && m.id === masked);
+    }
+
+    function msgExportId(msg) {
+        if (msg.isIndependent) return '3221225472'; // Vector's reserved VECTOR__INDEPENDENT_SIG_MSG sentinel ID
+        let exportId = msg.id;
+        if (msg.isExt) exportId = exportId | 0x80000000;
+        return (exportId >>> 0).toString(10);
+    }
+
+
+    const reMsg = /^BO_\s+(\d+)\s+([^:]+?)\s*:\s*(\d+)\s+(\S+)/;
+    const reSig = /^\s*SG_\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(m\d+|M)?\s*:\s*(\d+)\s*\|\s*(\d+)\s*@\s*([01])\s*([+-])\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)\s*\[\s*([^|]*)\s*\|\s*([^\]]*)\s*\]\s*"([^"]*)"\s*(.*)$/;
+    const reVal = /^VAL_\s+(\d+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(.*);/;
+    const reValTable = /^VAL_TABLE_\s+/;
+    const reCmBU = /CM_\s+BU_\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+"([\s\S]*?)"\s*;/g;
+    const reCmBO = /CM_\s+BO_\s+(\d+)\s+"([\s\S]*?)"\s*;/g;
+    const reCmSG = /CM_\s+SG_\s+(\d+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+"([\s\S]*?)"\s*;/g;
+
+    /* ============================= ATTRIBUTE ENGINE =============================
+       Generic user-defined attribute machinery, mirroring Vector CANdb++:
+         BA_DEF_      attribute definition (object type + value type + constraints)
+         BA_DEF_DEF_  attribute default value
+         BA_          attribute value assignment to network / node / message / signal
+
+       Definition model (db.attrDefs[name]):
+         { name, objectType: '' (network) | 'BU_' | 'BO_' | 'SG_',
+           valueType: 'INT' | 'HEX' | 'FLOAT' | 'STRING' | 'ENUM',
+           min, max,            // numeric types; min === max means "unrestricted"
+           enumValues: [],      // ENUM only; BA_ stores the INDEX into this list
+           defaultValue }       // number (index for ENUM), or string for STRING
+
+       Assignments: db.netAttrs[name], db.nodeAttrs[node][name],
+                    msg.attrs[name], sig.attrs[name]. A missing key means the
+                    default applies (Vector's "value = default" display state).   */
+
+    // BA_DEF_ [BU_|BO_|SG_|EV_] "Name" TYPE constraints ;
+    const reAttrDef = /^BA_DEF_\s+(?:(BU_|BO_|SG_|EV_)\s+)?"([^"]+)"\s+(INT|HEX|FLOAT|STRING|ENUM)\s*([^;]*);/;
+    // BA_DEF_DEF_ "Name" value ;
+    const reAttrDefDef = /^BA_DEF_DEF_\s+"([^"]+)"\s+([^;]*);/;
+    // BA_ "Name" [BU_ node | BO_ id | SG_ id signame] value ;
+    const reAttrAssign = /^BA_\s+"([^"]+)"\s+(?:BU_\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+|BO_\s+(\d+)\s+|SG_\s+(\d+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+)?([^;]*);/;
+
+    // The five standard Vector "Gen*" attributes, pre-seeded so every database
+    // can use them out of the box. Send-type enum lists use the common Vector
+    // defaults; BA_ stores ENUM values as an index into this exact ordering.
+    const SEND_TYPE_ENUM_MSG = ["Cyclic", "OnWrite", "OnWriteWithRepetition", "OnChange", "OnChangeWithRepetition", "IfActive", "IfActiveWithRepetition", "NoMsgSendType"];
+    const SEND_TYPE_ENUM_SIG = ["Cyclic", "OnWrite", "OnWriteWithRepetition", "OnChange", "OnChangeWithRepetition", "IfActive", "IfActiveWithRepetition", "NoSigSendType"];
+
+    function standardAttrDefs() {
+        return {
+            'GenMsgCycleTime':     { name: 'GenMsgCycleTime',     objectType: 'BO_', valueType: 'INT',   min: 0, max: 65535, enumValues: [], defaultValue: 0 },
+            'GenMsgSendType':      { name: 'GenMsgSendType',      objectType: 'BO_', valueType: 'ENUM',  min: 0, max: 0, enumValues: SEND_TYPE_ENUM_MSG.slice(), defaultValue: 7 },
+            'GenSigSendType':      { name: 'GenSigSendType',      objectType: 'SG_', valueType: 'ENUM',  min: 0, max: 0, enumValues: SEND_TYPE_ENUM_SIG.slice(), defaultValue: 7 },
+            'GenSigStartValue':    { name: 'GenSigStartValue',    objectType: 'SG_', valueType: 'FLOAT', min: 0, max: 0, enumValues: [], defaultValue: 0 },
+            'GenSigInactiveValue': { name: 'GenSigInactiveValue', objectType: 'SG_', valueType: 'INT',   min: 0, max: 0, enumValues: [], defaultValue: 0 }
+        };
+    }
+
+    // Add any of the five standard definitions that the database doesn't already
+    // have. Existing definitions from a loaded file always win (their enum
+    // ordering may be OEM-specific and BA_ indices depend on it).
+    function seedStandardAttrs() {
+        const std = standardAttrDefs();
+        Object.keys(std).forEach(name => { if (!db.attrDefs[name]) db.attrDefs[name] = std[name]; });
+    }
+
+    // Parses a raw BA_/BA_DEF_DEF_ value token according to the definition's type.
+    // Returns the internal representation (number, ENUM index, or string), or
+    // null if the token can't be interpreted.
+    function parseAttrValue(def, raw) {
+        raw = (raw || '').trim();
+        const quoted = raw.match(/^"([\s\S]*)"$/);
+        if (def.valueType === 'STRING') return quoted ? quoted[1] : raw;
+        if (def.valueType === 'ENUM') {
+            if (quoted) {
+                const idx = def.enumValues.indexOf(quoted[1]);
+                return idx >= 0 ? idx : null;
+            }
+            const n = parseInt(raw, 10);
+            return Number.isFinite(n) ? n : null;
+        }
+        // INT / HEX / FLOAT
+        const v = quoted ? parseFloat(quoted[1]) : parseFloat(raw);
+        return Number.isFinite(v) ? v : null;
+    }
+
+    // Formats an internal attribute value for display in the UI.
+    function displayAttrValue(def, value) {
+        if (value === undefined || value === null) return '';
+        if (def.valueType === 'ENUM') return def.enumValues[value] !== undefined ? def.enumValues[value] : `#${value}`;
+        return String(value);
+    }
+
+    // Formats an internal value for DBC export. ENUM assignments are written as
+    // indices (Vector convention); ENUM defaults are written as quoted strings.
+    function exportAttrValue(def, value, isDefaultLine) {
+        if (def.valueType === 'STRING') return `"${String(value).replace(/"/g, "'")}"`;
+        if (def.valueType === 'ENUM') {
+            if (isDefaultLine) return `"${def.enumValues[value] !== undefined ? def.enumValues[value] : ''}"`;
+            return String(value);
+        }
+        return String(value);
+    }
+
+    // Effective value of an attribute on an object: explicit assignment if
+    // present, otherwise the definition's default.
+    function effectiveAttr(attrsObj, defName) {
+        const def = db.attrDefs[defName];
+        if (!def) return undefined;
+        if (attrsObj && attrsObj[defName] !== undefined) return attrsObj[defName];
+        return def.defaultValue;
+    }
+
+    // Assignment container for the currently edited object, by object type.
+    function attrsContainerFor(objType) {
+        if (objType === 'BU_') {
+            if (!db.nodeAttrs[activeNodeName]) db.nodeAttrs[activeNodeName] = {};
+            return db.nodeAttrs[activeNodeName];
+        }
+        if (objType === 'BO_') return db.messages[activeMsgIndex].attrs;
+        if (objType === 'SG_') return db.messages[activeMsgIndex].signals[activeSigIndex].attrs;
+        return db.netAttrs;
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        e.target.value = '';
+        if (files.length === 0) return;
+        suppressParseToasts = files.length > 1;
+        let idx = 0, loaded = 0, totalErrs = 0;
+        (function loadNext() {
+            if (idx >= files.length) {
+                suppressParseToasts = false;
+                renderDbSelector();
+                if (typeof TR !== 'undefined' && TR.built) traceRebuildDbMaps();
+                if (files.length > 1) {
+                    showToast(`Loaded ${loaded} database file(s)${totalErrs ? ` — ${totalErrs} syntax error(s), see Problems` : ''}.`, totalErrs ? 'warning' : 'success');
+                }
+                return;
+            }
+            const file = files[idx++];
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                loadedFileName = file.name;
+                parseDbc(ev.target.result);          // sets the globals db / parseIssues
+                registerCurrentDb(file.name);        // snapshot them into the registry
+                loaded++;
+                totalErrs += parseIssues.filter(p => p.severity === 'error').length;
+                loadNext();
+            };
+            reader.onerror = function() { showToast(`Could not read ${file.name} from disk.`, 'error'); loadNext(); };
+            reader.readAsText(file);
+        })();
+    });
+
+    /* ============================= TOASTS ============================= */
+    function showToast(msg, type) {
+        const stack = document.getElementById('toastStack');
+        const t = document.createElement('div');
+        t.className = 'toast ' + (type || '');
+        t.innerText = msg;
+        stack.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 3200);
+    }
+
+    /* ============================= MODAL SYSTEM ============================= */
+    function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+    function openModal(title, bodyHtml, buttons, wide) {
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalBody').innerHTML = bodyHtml;
+        document.querySelector('.modal-box').classList.toggle('wide', !!wide);
+        const footer = document.getElementById('modalFooter');
+        footer.innerHTML = '';
+        buttons.forEach(b => {
+            const btn = document.createElement('button');
+            btn.className = 'modal-btn' + (b.variant ? ' ' + b.variant : '');
+            btn.innerText = b.label;
+            btn.onclick = b.onClick;
+            footer.appendChild(btn);
+        });
+        document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function confirmDialog(title, message, onConfirm, confirmLabel) {
+        openModal(title, `<p>${message}</p>`, [
+            { label: 'Cancel', onClick: closeModal },
+            { label: confirmLabel || 'Confirm', variant: 'danger', onClick: () => { closeModal(); onConfirm(); } }
+        ]);
+    }
+
+    function promptDialog(title, label, defaultValue, onSubmit) {
+        openModal(title, `<label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">${label}</label>
+            <input type="text" id="modalInput" value="${defaultValue || ''}">
+            <div class="modal-error-text" id="modalErr"></div>`,
+            [
+                { label: 'Cancel', onClick: closeModal },
+                { label: 'OK', variant: 'primary', onClick: () => {
+                    const val = document.getElementById('modalInput').value.trim();
+                    const err = onSubmit(val);
+                    if (err) { document.getElementById('modalErr').innerText = err; }
+                    else { closeModal(); }
+                } }
+            ]);
+        setTimeout(() => { const el = document.getElementById('modalInput'); if (el) { el.focus(); el.select(); } }, 50);
+    }
+
+    /* ============================= NEW / OPEN ============================= */
+    function promptNewDatabase() {
+        if (db.messages.length > 0 || db.nodes.length > 0) {
+            confirmDialog('New Database', 'This will discard the current database. Continue?', createNewDatabase, 'Discard & Create');
+        } else {
+            createNewDatabase();
+        }
+    }
+
+    function createNewDatabase() {
+        db = { version: "1.0", nodes: ["Vector__XXX"], nodeComments: {}, messages: [], valueTablesRaw: [], attrDefs: {}, netAttrs: {}, nodeAttrs: {}, attrRaw: [] };
+        seedStandardAttrs();
+        parseIssues = [];
+        loadedFileName = 'Untitled database';
+        document.getElementById('fileBadge').innerText = 'Untitled database';
+        activeType = null; activeMsgIndex = null; activeSigIndex = null; activeNodeName = null;
+        registerCurrentDb('Untitled database');
+        renderTree();
+        showEmptyState();
+        runValidation();
+        if (typeof TR !== 'undefined' && TR.built) traceRebuildDbMaps();
+        showToast('New database created.', 'success');
+    }
+
+    /* ============================= DBC PARSER ============================= */
+    function parseDbc(text) {
+        db = { version: "", nodes: [], nodeComments: {}, messages: [], valueTablesRaw: [], attrDefs: {}, netAttrs: {}, nodeAttrs: {}, attrRaw: [] };
+        parseIssues = [];
+        let currentMsg = null;
+        const pendingAttrAssigns = []; // BA_ lines seen before all defs are known
+        const lines = text.split('\n');
+
+        let inNsBlock = false; // inside the NS_ header keyword list
+
+        for (let i = 0; i < lines.length; i++) {
+            const rawLine = lines[i];
+            const line = rawLine.trim();
+            if (line === '' || line.startsWith('//')) continue;
+
+            // The NS_ header block at the top of every DBC is a list of bare
+            // section KEYWORDS (one per line: NS_DESC_, CM_, BA_DEF_, VAL_,
+            // SG_MUL_VAL_, FILTER, ...). They are not statements and must be
+            // skipped — otherwise lines like "BA_DEF_" or "SG_MUL_VAL_" would
+            // be misread as malformed attribute/signal definitions.
+            if (/^NS_\s*:/.test(line)) { inNsBlock = true; continue; }
+            if (inNsBlock) {
+                if (/^[A-Z_]+$/.test(line)) continue; // bare keyword -> skip
+                inNsBlock = false;                    // first real statement ends the block
+            }
+
+            if (line.startsWith('VERSION')) {
+                const m = line.match(/VERSION\s+"([^"]*)"/);
+                if (m) db.version = m[1];
+                continue;
+            }
+
+            if (line.startsWith('BU_:')) {
+                db.nodes = line.replace('BU_:', '').trim().split(/\s+/).filter(n => n !== '');
+                continue;
+            }
+
+            // Relation attributes (node-message / node-signal) are not editable in
+            // the GUI yet — preserve them verbatim so they round-trip unchanged.
+            if (line.startsWith('BA_DEF_DEF_REL_') || line.startsWith('BA_DEF_REL_') || line.startsWith('BA_REL_')) {
+                db.attrRaw.push(line);
+                continue;
+            }
+
+            if (line.startsWith('BA_DEF_DEF_')) {
+                const dm = line.match(reAttrDefDef);
+                if (dm) {
+                    const def = db.attrDefs[dm[1]];
+                    if (def) {
+                        const v = parseAttrValue(def, dm[2]);
+                        if (v !== null) def.defaultValue = v;
+                        else parseIssues.push({ severity: 'warning', message: `BA_DEF_DEF_ default for '${dm[1]}' could not be interpreted — keeping type default.`, line: i + 1, raw: line });
+                    } else {
+                        parseIssues.push({ severity: 'warning', message: `BA_DEF_DEF_ references undefined attribute '${dm[1]}'.`, line: i + 1, raw: line });
+                    }
+                } else {
+                    parseIssues.push({ severity: 'error', message: 'Malformed BA_DEF_DEF_ line — skipped.', line: i + 1, raw: line });
+                }
+                continue;
+            }
+
+            if (line.startsWith('BA_DEF_')) {
+                const dm = line.match(reAttrDef);
+                if (dm) {
+                    const objectType = dm[1] || '';
+                    if (objectType === 'EV_') { db.attrRaw.push(line); continue; } // env-var attrs: passthrough
+                    const name = dm[2];
+                    const valueType = dm[3];
+                    const rest = (dm[4] || '').trim();
+                    const def = { name, objectType, valueType, min: 0, max: 0, enumValues: [], defaultValue: valueType === 'STRING' ? '' : 0 };
+                    if (valueType === 'ENUM') {
+                        def.enumValues = [...rest.matchAll(/"([^"]*)"/g)].map(m2 => m2[1]);
+                    } else if (valueType !== 'STRING') {
+                        const nums = rest.split(/[\s,]+/).filter(Boolean).map(parseFloat);
+                        if (nums.length >= 2 && nums.every(Number.isFinite)) { def.min = nums[0]; def.max = nums[1]; }
+                    }
+                    db.attrDefs[name] = def;
+                } else {
+                    parseIssues.push({ severity: 'error', message: 'Malformed BA_DEF_ (attribute definition) line — skipped.', line: i + 1, raw: line });
+                }
+                continue;
+            }
+
+            if (line.startsWith('BA_ ')) {
+                // Defer: BO_/SG_ targets may not be parsed yet if BA_ appears early.
+                pendingAttrAssigns.push({ line, lineNo: i + 1 });
+                continue;
+            }
+
+            if (reValTable.test(line)) {
+                // Preserve named value tables verbatim (round-trip only; not editable via GUI yet)
+                db.valueTablesRaw.push(line);
+                continue;
+            }
+
+            if (line.startsWith('BO_ ')) {
+                const mMatch = line.match(reMsg);
+                if (mMatch) {
+                    const rawId = parseInt(mMatch[1], 10);
+                    const isExt = (rawId & 0x80000000) !== 0;
+                    const name = mMatch[2].trim();
+                    const isIndependent = name === 'VECTOR__INDEPENDENT_SIG_MSG' || (rawId >>> 0) === 0xC0000000;
+
+                    // Some tools emit the independent-signal container more than once —
+                    // merge all of its blocks into a single container instead of duplicating it.
+                    if (isIndependent) {
+                        const existing = db.messages.find(m => m.isIndependent);
+                        if (existing) { currentMsg = existing; continue; }
+                    }
+
+                    currentMsg = {
+                        rawId: rawId, id: rawId & 0x1FFFFFFF, isExt: isExt,
+                        name: name, dlc: parseInt(mMatch[3], 10),
+                        node: mMatch[4].trim(), comment: '', attrs: {}, signals: [],
+                        isIndependent: isIndependent
+                    };
+                    db.messages.push(currentMsg);
+                } else {
+                    currentMsg = null;
+                    parseIssues.push({ severity: 'error', message: `Malformed BO_ (message) definition — line skipped.`, line: i + 1, raw: rawLine.trim() });
+                }
+                continue;
+            }
+
+            if (line.startsWith('SG_')) {
+                if (!currentMsg) {
+                    parseIssues.push({ severity: 'error', message: `SG_ (signal) found outside of any BO_ message block — skipped.`, line: i + 1, raw: rawLine.trim() });
+                    continue;
+                }
+                const sMatch = line.match(reSig);
+                if (sMatch) {
+                    const muxRaw = sMatch[2] || '';
+                    let muxType = 'none', muxValue = null;
+                    if (muxRaw === 'M') muxType = 'M';
+                    else if (muxRaw.startsWith('m')) { muxType = 'm'; muxValue = parseInt(muxRaw.slice(1), 10); }
+                    const receiversStr = (sMatch[12] || '').trim();
+                    const receivers = receiversStr && receiversStr !== 'Vector__XXX'
+                        ? receiversStr.split(',').map(r => r.trim()).filter(Boolean)
+                        : (receiversStr === 'Vector__XXX' ? [] : []);
+                    const sigName = sMatch[1].trim();
+                    // In the independent container, tools often repeat the same signal — keep one copy.
+                    if (currentMsg.isIndependent && currentMsg.signals.some(s => s.name === sigName)) continue;
+                    currentMsg.signals.push({
+                        name: sigName, start: parseInt(sMatch[3], 10), len: parseInt(sMatch[4], 10),
+                        order: sMatch[5], type: sMatch[6], factor: sMatch[7].trim(), offset: sMatch[8].trim(),
+                        min: sMatch[9].trim(), max: sMatch[10].trim(), unit: sMatch[11] || '',
+                        comment: '', attrs: {}, muxType, muxValue, receivers, valTable: {}
+                    });
+                } else {
+                    parseIssues.push({ severity: 'error', message: `Malformed SG_ (signal) definition in message '${currentMsg.name}' — line skipped.`, line: i + 1, raw: rawLine.trim() });
+                }
+                continue;
+            }
+
+            if (line.startsWith('VAL_ ') ) {
+                const vMatch = line.match(reVal);
+                if (vMatch) {
+                    const msgId = parseInt(vMatch[1], 10) & 0x1FFFFFFF;
+                    const sigName = vMatch[2];
+                    const targetMsg = findMsgByRawId(vMatch[1]);
+                    if (targetMsg) {
+                        const targetSig = targetMsg.signals.find(s => s.name === sigName);
+                        if (targetSig) {
+                            const valPairs = [...vMatch[3].matchAll(/(-?\d+)\s+"([^"]*)"/g)];
+                            valPairs.forEach(p => { targetSig.valTable[p[1]] = p[2]; });
+                        } else {
+                            parseIssues.push({ severity: 'warning', message: `VAL_ references unknown signal '${sigName}' on message id ${msgId}.`, line: i + 1, raw: rawLine.trim() });
+                        }
+                    } else {
+                        parseIssues.push({ severity: 'warning', message: `VAL_ references unknown message id ${msgId}.`, line: i + 1, raw: rawLine.trim() });
+                    }
+                } else {
+                    parseIssues.push({ severity: 'error', message: `Malformed VAL_ (value table) line — skipped.`, line: i + 1, raw: rawLine.trim() });
+                }
+                continue;
+            }
+        }
+
+        // Second pass: comments (can be matched globally, tolerant of embedded newlines)
+        let m;
+        reCmBU.lastIndex = 0;
+        while ((m = reCmBU.exec(text)) !== null) { db.nodeComments[m[1]] = m[2]; }
+        reCmBO.lastIndex = 0;
+        while ((m = reCmBO.exec(text)) !== null) {
+            const msg = findMsgByRawId(m[1]);
+            if (msg) msg.comment = m[2];
+        }
+        reCmSG.lastIndex = 0;
+        while ((m = reCmSG.exec(text)) !== null) {
+            const msg = findMsgByRawId(m[1]);
+            if (msg) {
+                const sig = msg.signals.find(s => s.name === m[2]);
+                if (sig) sig.comment = m[3];
+            }
+        }
+        // Resolve BA_ assignments now that every node/message/signal is known.
+        pendingAttrAssigns.forEach(({ line, lineNo }) => {
+            const am = line.match(reAttrAssign);
+            if (!am) { parseIssues.push({ severity: 'error', message: 'Malformed BA_ (attribute assignment) line — skipped.', line: lineNo, raw: line }); return; }
+            const [, attrName, nodeName, boId, sgId, sgName, rawValue] = am;
+            let def = db.attrDefs[attrName];
+            if (!def) {
+                // Vector requires a definition; recover by inferring one so the value round-trips.
+                const looksNumeric = /^-?[\d.]+$/.test(rawValue.trim());
+                def = { name: attrName, objectType: nodeName ? 'BU_' : (sgId ? 'SG_' : (boId ? 'BO_' : '')), valueType: looksNumeric ? 'FLOAT' : 'STRING', min: 0, max: 0, enumValues: [], defaultValue: looksNumeric ? 0 : '' };
+                db.attrDefs[attrName] = def;
+                parseIssues.push({ severity: 'warning', message: `BA_ uses undefined attribute '${attrName}' — an implicit ${def.valueType} definition was created.`, line: lineNo, raw: line });
+            }
+            const value = parseAttrValue(def, rawValue);
+            if (value === null) { parseIssues.push({ severity: 'warning', message: `BA_ value for '${attrName}' could not be interpreted — skipped.`, line: lineNo, raw: line }); return; }
+
+            if (nodeName) {
+                if (!db.nodeAttrs[nodeName]) db.nodeAttrs[nodeName] = {};
+                db.nodeAttrs[nodeName][attrName] = value;
+            } else if (sgId !== undefined && sgId !== null && sgId !== '') {
+                const msg = findMsgByRawId(sgId);
+                const sig = msg ? msg.signals.find(s => s.name === sgName) : null;
+                if (sig) sig.attrs[attrName] = value;
+                else parseIssues.push({ severity: 'warning', message: `BA_ '${attrName}' references unknown signal '${sgName}' on message id ${sgId}.`, line: lineNo, raw: line });
+            } else if (boId !== undefined && boId !== null && boId !== '') {
+                const msg = findMsgByRawId(boId);
+                if (msg) msg.attrs[attrName] = value;
+                else parseIssues.push({ severity: 'warning', message: `BA_ '${attrName}' references unknown message id ${boId}.`, line: lineNo, raw: line });
+            } else {
+                db.netAttrs[attrName] = value;
+            }
+        });
+
+        // Make sure the five standard Gen* attributes exist (file definitions win).
+        seedStandardAttrs();
+
+        db.messages.forEach(m => { if (!db.nodes.includes(m.node)) db.nodes.push(m.node); });
+        if (db.nodes.length === 0) db.nodes.push('Vector__XXX');
+
+        loadedFileName = loadedFileName || 'imported.dbc';
+        document.getElementById('fileBadge').innerText = loadedFileName;
+
+        renderTree();
+        showEmptyState();
+        runValidation();
+
+        const errCount = parseIssues.filter(p => p.severity === 'error').length;
+        if (!suppressParseToasts) {
+            if (errCount > 0) {
+                showToast(`File loaded with ${errCount} syntax error(s). See Problems panel.`, 'error');
+                document.getElementById('problemsPanel').classList.add('open');
+            } else {
+                showToast(`Database loaded: ${db.messages.length} message(s), ${db.nodes.length} node(s).`, 'success');
+            }
+        }
+    }
+
+    /* ============================= VALIDATION ENGINE ============================= */
+    function runValidation() {
+        const problems = [...parseIssues];
+
+        // Node checks
+        const seenNodes = {};
+        db.nodes.forEach(n => {
+            if (!IDENT_RE.test(n)) problems.push({ severity: 'error', message: `Node name '${n}' is not a valid DBC identifier (letters, digits, underscore; cannot start with a digit).`, ref: { type: 'node', name: n } });
+            if (seenNodes[n]) problems.push({ severity: 'error', message: `Duplicate node name '${n}'.`, ref: { type: 'node', name: n } });
+            seenNodes[n] = true;
+        });
+
+        // Attribute assignment checks — type conformity, numeric range, ENUM index.
+        function checkAttrs(attrsObj, ownerLabel, ref) {
+            if (!attrsObj) return;
+            Object.keys(attrsObj).forEach(name => {
+                const def = db.attrDefs[name];
+                const value = attrsObj[name];
+                if (!def) { problems.push({ severity: 'error', message: `${ownerLabel} has a value for undefined attribute '${name}'.`, ref }); return; }
+                if (def.valueType === 'ENUM') {
+                    if (!Number.isInteger(value) || value < 0 || value >= def.enumValues.length) {
+                        problems.push({ severity: 'error', message: `${ownerLabel}: attribute '${name}' has ENUM index ${value}, but only ${def.enumValues.length} values are defined.`, ref });
+                    }
+                } else if (def.valueType !== 'STRING') {
+                    if (!Number.isFinite(value)) {
+                        problems.push({ severity: 'error', message: `${ownerLabel}: attribute '${name}' must be numeric.`, ref });
+                    } else if (def.min !== def.max && (value < def.min || value > def.max)) {
+                        problems.push({ severity: 'error', message: `${ownerLabel}: attribute '${name}' value ${value} is outside its defined range [${def.min} … ${def.max}].`, ref });
+                    }
+                }
+            });
+        }
+        checkAttrs(db.netAttrs, 'Network', null);
+        Object.keys(db.nodeAttrs).forEach(n => checkAttrs(db.nodeAttrs[n], `Node '${n}'`, { type: 'node', name: n }));
+        db.messages.forEach((msg, mIdx) => {
+            if (msg.isIndependent) return;
+            checkAttrs(msg.attrs, `Message '${msg.name}'`, { type: 'msg', idx: mIdx });
+            msg.signals.forEach((sig, sIdx) => {
+                checkAttrs(sig.attrs, `Signal '${sig.name}'`, { type: 'sig', idx: mIdx, sIdx });
+                // GenSigStartValue is a RAW value — it must fit the signal's bit capacity.
+                const sv = sig.attrs['GenSigStartValue'];
+                if (sv !== undefined && Number.isFinite(sig.len) && sig.len > 0 && sig.len <= 64) {
+                    const maxRaw = sig.type === '+' ? Math.pow(2, sig.len) - 1 : Math.pow(2, sig.len - 1) - 1;
+                    const minRaw = sig.type === '+' ? 0 : -Math.pow(2, sig.len - 1);
+                    if (sv > maxRaw || sv < minRaw) {
+                        problems.push({ severity: 'warning', message: `Signal '${sig.name}': GenSigStartValue ${sv} does not fit in a ${sig.len}-bit ${sig.type === '+' ? 'unsigned' : 'signed'} raw value [${minRaw} … ${maxRaw}].`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                    }
+                }
+            });
+        });
+
+        // Message checks
+        const seenIds = {};
+        const seenMsgNames = {};
+        db.messages.forEach((msg, mIdx) => {
+            // The Vector "independent signals" container (VECTOR__INDEPENDENT_SIG_MSG) is a pure
+            // bookkeeping placeholder, not a real CAN frame. It is fully exempt from validation:
+            // no ID/DLC/transmitter checks, no bit-layout checks, and no signal-level checks
+            // (duplicate names are legal there — Vector itself stores repeated names in it).
+            if (msg.isIndependent) return;
+
+            if (!IDENT_RE.test(msg.name)) problems.push({ severity: 'error', message: `Message '${msg.name}' has an invalid name.`, ref: { type: 'msg', idx: mIdx } });
+            const nameKey = msg.name;
+            if (seenMsgNames[nameKey]) problems.push({ severity: 'error', message: `Duplicate message name '${msg.name}'.`, ref: { type: 'msg', idx: mIdx } });
+            seenMsgNames[nameKey] = true;
+
+            const idKey = (msg.isExt ? 'X' : 'S') + msg.id;
+            if (seenIds[idKey]) problems.push({ severity: 'error', message: `Duplicate message ID ${msg.id} (0x${msg.id.toString(16).toUpperCase()}) — conflicts with another ${msg.isExt ? 'extended' : 'standard'} frame.`, ref: { type: 'msg', idx: mIdx } });
+            seenIds[idKey] = true;
+
+            const maxId = msg.isExt ? 0x1FFFFFFF : 0x7FF;
+            if (msg.id < 0 || msg.id > maxId) problems.push({ severity: 'error', message: `Message '${msg.name}' ID ${msg.id} is out of range for a ${msg.isExt ? '29-bit extended' : '11-bit standard'} identifier (max 0x${maxId.toString(16)}).`, ref: { type: 'msg', idx: mIdx } });
+
+            if (msg.dlc < 0 || msg.dlc > 64) problems.push({ severity: 'error', message: `Message '${msg.name}' has an invalid DLC of ${msg.dlc} (must be 0-64).`, ref: { type: 'msg', idx: mIdx } });
+            else if (msg.dlc > 8) problems.push({ severity: 'warning', message: `Message '${msg.name}' has DLC ${msg.dlc} > 8 — only valid on a CAN FD bus.`, ref: { type: 'msg', idx: mIdx } });
+
+            if (!db.nodes.includes(msg.node)) problems.push({ severity: 'error', message: `Message '${msg.name}' transmitter '${msg.node}' is not a defined node.`, ref: { type: 'msg', idx: mIdx } });
+
+            // Signal checks
+            const seenSigNames = {};
+            let muxorCount = 0, muxedCount = 0;
+            const bitOwners = {};
+            const availableBits = msg.dlc * 8;
+
+            msg.signals.forEach((sig, sIdx) => {
+                if (!IDENT_RE.test(sig.name)) problems.push({ severity: 'error', message: `Signal '${sig.name}' in message '${msg.name}' has an invalid name.`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                if (seenSigNames[sig.name]) problems.push({ severity: 'error', message: `Duplicate signal name '${sig.name}' in message '${msg.name}'.`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                seenSigNames[sig.name] = true;
+
+                if (!Number.isFinite(sig.len) || sig.len <= 0 || sig.len > 64) problems.push({ severity: 'error', message: `Signal '${sig.name}' has invalid length ${sig.len} (must be 1-64 bits).`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                if (!Number.isFinite(sig.start) || sig.start < 0 || sig.start > 63) problems.push({ severity: 'error', message: `Signal '${sig.name}' has an invalid start bit ${sig.start}.`, ref: { type: 'sig', idx: mIdx, sIdx } });
+
+                [['factor', sig.factor], ['offset', sig.offset], ['min', sig.min], ['max', sig.max]].forEach(([label, v]) => {
+                    if (v === '' || isNaN(parseFloat(v))) problems.push({ severity: 'error', message: `Signal '${sig.name}' has a non-numeric ${label} value ("${v}").`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                });
+                if (!isNaN(parseFloat(sig.min)) && !isNaN(parseFloat(sig.max)) && parseFloat(sig.min) > parseFloat(sig.max)) {
+                    problems.push({ severity: 'warning', message: `Signal '${sig.name}' minimum (${sig.min}) is greater than maximum (${sig.max}).`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                }
+
+                sig.receivers.forEach(r => {
+                    if (!db.nodes.includes(r)) problems.push({ severity: 'warning', message: `Signal '${sig.name}' lists unknown receiver node '${r}'.`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                });
+
+                if (sig.muxType === 'M') muxorCount++;
+                if (sig.muxType === 'm') muxedCount++;
+
+                if (Number.isFinite(sig.len) && sig.len > 0 && Number.isFinite(sig.start)) {
+                    const bits = computeSignalBits(sig);
+                    const maxBit = Math.max(...bits);
+                    const minBit = Math.min(...bits);
+                    if (availableBits > 0 && (maxBit >= availableBits || minBit < 0)) {
+                        problems.push({ severity: 'error', message: `Signal '${sig.name}' (bits ${minBit}-${maxBit}) exceeds the message payload of ${availableBits} bits (DLC=${msg.dlc}).`, ref: { type: 'sig', idx: mIdx, sIdx } });
+                    }
+                    bits.forEach(b => { if (!bitOwners[b]) bitOwners[b] = []; bitOwners[b].push({ sIdx, muxType: sig.muxType, muxValue: sig.muxValue }); });
+                }
+            });
+
+            if (muxedCount > 0 && muxorCount === 0) problems.push({ severity: 'warning', message: `Message '${msg.name}' has multiplexed signal(s) but no multiplexor (M) signal defined.`, ref: { type: 'msg', idx: mIdx } });
+            if (muxorCount > 1) problems.push({ severity: 'error', message: `Message '${msg.name}' defines more than one multiplexor (M) signal.`, ref: { type: 'msg', idx: mIdx } });
+
+            Object.keys(bitOwners).forEach(bit => {
+                const owners = bitOwners[bit];
+                if (owners.length <= 1) return;
+                // Signals under different mux values legitimately share bits; only flag when
+                // both are unconditional (none/M) or share the same mux selector value.
+                const conflict = owners.some((o, i) => owners.some((o2, j) => {
+                    if (i >= j) return false;
+                    const bothUnconditional = (o.muxType !== 'm') && (o2.muxType !== 'm');
+                    const sameMuxValue = (o.muxType === 'm' && o2.muxType === 'm' && o.muxValue === o2.muxValue);
+                    const mixedUnconditionalMuxed = (o.muxType !== 'm') !== (o2.muxType !== 'm');
+                    return bothUnconditional || sameMuxValue || mixedUnconditionalMuxed;
+                }));
+                if (conflict) {
+                    const names = [...new Set(owners.map(o => msg.signals[o.sIdx].name))];
+                    problems.push({ severity: 'error', message: `Bit ${bit} in message '${msg.name}' is claimed by overlapping signals: ${names.join(', ')}.`, ref: { type: 'msg', idx: mIdx } });
+                }
+            });
+        });
+
+        problems.sort((a, b) => (a.severity === 'error' ? 0 : 1) - (b.severity === 'error' ? 0 : 1));
+        renderProblems(problems);
+        return problems;
+    }
+
+    function renderProblems(problems) {
+        const list = document.getElementById('problemsList');
+        const errCount = problems.filter(p => p.severity === 'error').length;
+        const warnCount = problems.filter(p => p.severity === 'warning').length;
+        document.getElementById('errCount').innerText = errCount;
+        document.getElementById('warnCount').innerText = warnCount;
+
+        if (problems.length === 0) {
+            list.innerHTML = '<div class="problems-empty">No problems detected. Database looks structurally valid.</div>';
+            return;
+        }
+        list.innerHTML = '';
+        problems.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'problem-row ' + p.severity;
+            const icon = p.severity === 'error' ? '⛔' : '⚠';
+            const loc = p.line ? `Line ${p.line}` : (p.ref && p.ref.type === 'msg' ? db.messages[p.ref.idx].name : (p.ref && p.ref.type === 'sig' ? db.messages[p.ref.idx].signals[p.ref.sIdx].name : ''));
+            row.innerHTML = `<span class="problem-icon">${icon}</span><span>${escapeHtml(p.message)}</span><span class="problem-loc">${escapeHtml(loc || '')}</span>`;
+            row.onclick = () => jumpToProblem(p);
+            list.appendChild(row);
+        });
+    }
+
+    function jumpToProblem(p) {
+        document.getElementById('problemsPanel').classList.remove('open');
+        if (!p.ref) return;
+        if (p.ref.type === 'node') openNodeEditor(p.ref.name);
+        else if (p.ref.type === 'msg') openMessageEditor(p.ref.idx);
+        else if (p.ref.type === 'sig') openSignalEditor(p.ref.idx, p.ref.sIdx);
+    }
+
+    function toggleProblemsPanel() { document.getElementById('problemsPanel').classList.toggle('open'); }
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.innerText = s; return d.innerHTML; }
+
+    /* ============================= TREE ============================= */
+    function renderTree() {
+        const tree = document.getElementById('treeContainer');
+        tree.innerHTML = '';
+        if (db.nodes.length === 0 && db.messages.length === 0) {
+            tree.innerHTML = '<div class="empty-state" style="font-size: 0.85rem;">Create or Open a database</div>';
+            return;
+        }
+
+        const filter = (document.getElementById('treeSearch').value || '').trim().toLowerCase();
+        const problemRefs = runValidationRefsOnly();
+
+        // --- Independent Signals (Vector's VECTOR__INDEPENDENT_SIG_MSG container) ---
+        const indepMsg = db.messages.find(m => m.isIndependent);
+        if (indepMsg && indepMsg.signals.length > 0) {
+            const mIdx = db.messages.indexOf(indepMsg);
+            const matchingSigs = indepMsg.signals.filter(s => !filter || s.name.toLowerCase().includes(filter));
+            const sectionVisible = !filter || matchingSigs.length > 0;
+
+            const indepDiv = document.createElement('div');
+            indepDiv.className = 'tree-item' + (sectionVisible ? '' : ' dimmed');
+            indepDiv.innerHTML = `<span class="tree-toggle" onclick="toggleNode(event, 'indepRoot')">▼</span><span class="tree-item-icon icon-indep">📎</span><span class="tree-label">Independent Signals</span>`;
+            tree.appendChild(indepDiv);
+
+            const indepCont = document.createElement('div');
+            indepCont.className = 'tree-children';
+            indepCont.id = 'indepRoot';
+            indepMsg.signals.forEach((sig, sIdx) => {
+                const sigMatches = !filter || sig.name.toLowerCase().includes(filter);
+                const key = mIdx + ':' + sIdx;
+                const sDiv = document.createElement('div');
+                sDiv.className = 'tree-item' + (sigMatches ? '' : ' dimmed') + (problemRefs.sigErr.has(key) ? ' err-item' : (problemRefs.sigWarn.has(key) ? ' warn-item' : ''));
+                sDiv.id = `tree_m_${mIdx}_s_${sIdx}`;
+                sDiv.innerHTML = `<span class="tree-toggle"></span><span class="tree-item-icon"><i class="icon-signal"></i></span><span class="tree-label">${escapeHtml(sig.name)}</span>`;
+                sDiv.onclick = (e) => { e.stopPropagation(); openSignalEditor(mIdx, sIdx); };
+                indepCont.appendChild(sDiv);
+            });
+            tree.appendChild(indepCont);
+        }
+
+        const netDiv = document.createElement('div');
+        netDiv.className = 'tree-item';
+        netDiv.innerHTML = `<span class="tree-toggle" onclick="toggleNode(event, 'netRoot')">▼</span><span class="tree-item-icon icon-net">🌐</span><span class="tree-label">Network</span>`;
+        tree.appendChild(netDiv);
+
+        const netCont = document.createElement('div');
+        netCont.className = 'tree-children';
+        netCont.id = 'netRoot';
+
+        db.nodes.forEach((nName, nIdx) => {
+            const nodeMsgs = db.messages.map((m, i) => ({ msg: m, idx: i })).filter(item => item.msg.node === nName && !item.msg.isIndependent);
+            const hasMsgs = nodeMsgs.length > 0;
+            const nodeMatches = !filter || nName.toLowerCase().includes(filter);
+            const anyChildMatches = filter && nodeMsgs.some(item => item.msg.name.toLowerCase().includes(filter) || item.msg.signals.some(s => s.name.toLowerCase().includes(filter)));
+            const nodeVisible = !filter || nodeMatches || anyChildMatches;
+
+            const nd = document.createElement('div');
+            nd.className = 'tree-item' + (nodeVisible ? '' : ' dimmed');
+            const nodeCaret = hasMsgs ? `<span class="tree-toggle" onclick="toggleNode(event, 'node_${nIdx}')">▼</span>` : `<span class="tree-toggle"></span>`;
+            nd.innerHTML = `${nodeCaret}<span class="tree-item-icon icon-node">💻</span><span class="tree-label">${escapeHtml(nName)}</span>`;
+            nd.onclick = () => openNodeEditor(nName);
+            netCont.appendChild(nd);
+
+            if (hasMsgs) {
+                const msgsCont = document.createElement('div');
+                msgsCont.className = 'tree-children';
+                msgsCont.id = `node_${nIdx}`;
+
+                nodeMsgs.forEach(item => {
+                    const msg = item.msg;
+                    const mIdx = item.idx;
+                    const hasSigs = msg.signals.length > 0;
+                    const msgMatches = !filter || msg.name.toLowerCase().includes(filter) || msg.signals.some(s => s.name.toLowerCase().includes(filter));
+
+                    const mDiv = document.createElement('div');
+                    mDiv.className = 'tree-item' + (msgMatches ? '' : ' dimmed') + (problemRefs.msgErr.has(mIdx) ? ' err-item' : (problemRefs.msgWarn.has(mIdx) ? ' warn-item' : ''));
+                    mDiv.id = `tree_m_${mIdx}`;
+                    const msgCaret = hasSigs ? `<span class="tree-toggle" onclick="toggleNode(event, 'ch_${mIdx}')">▼</span>` : `<span class="tree-toggle"></span>`;
+                    mDiv.innerHTML = `${msgCaret}<span class="tree-item-icon icon-m">✉</span><span class="tree-label">${escapeHtml(msg.name)} (0x${msg.id.toString(16).toUpperCase()})</span>`;
+                    mDiv.onclick = (e) => { e.stopPropagation(); openMessageEditor(mIdx); };
+                    msgsCont.appendChild(mDiv);
+
+                    if (hasSigs) {
+                        const sCont = document.createElement('div');
+                        sCont.className = 'tree-children';
+                        sCont.id = `ch_${mIdx}`;
+                        msg.signals.forEach((sig, sIdx) => {
+                            const sigMatches = !filter || sig.name.toLowerCase().includes(filter) || msg.name.toLowerCase().includes(filter);
+                            const key = mIdx + ':' + sIdx;
+                            const sDiv = document.createElement('div');
+                            sDiv.className = 'tree-item' + (sigMatches ? '' : ' dimmed') + (problemRefs.sigErr.has(key) ? ' err-item' : (problemRefs.sigWarn.has(key) ? ' warn-item' : ''));
+                            sDiv.id = `tree_m_${mIdx}_s_${sIdx}`;
+                            const muxLabel = sig.muxType === 'M' ? '<span class="tree-badge mux">MUX</span>' : (sig.muxType === 'm' ? `<span class="tree-badge mux">m${sig.muxValue}</span>` : '');
+                            sDiv.innerHTML = `<span class="tree-toggle"></span><span class="tree-item-icon"><i class="icon-signal"></i></span><span class="tree-label">${escapeHtml(sig.name)}</span>${muxLabel}`;
+                            sDiv.onclick = (e) => { e.stopPropagation(); openSignalEditor(mIdx, sIdx); };
+                            sCont.appendChild(sDiv);
+                        });
+                        msgsCont.appendChild(sCont);
+                    }
+                });
+                netCont.appendChild(msgsCont);
+            }
+        });
+        tree.appendChild(netCont);
+    }
+
+    // Lightweight pass to know which tree rows need an error/warning highlight, without re-rendering the problems panel.
+    function runValidationRefsOnly() {
+        const problems = runValidation();
+        const out = { msgErr: new Set(), msgWarn: new Set(), sigErr: new Set(), sigWarn: new Set() };
+        problems.forEach(p => {
+            if (!p.ref) return;
+            if (p.ref.type === 'msg') { (p.severity === 'error' ? out.msgErr : out.msgWarn).add(p.ref.idx); }
+            if (p.ref.type === 'sig') { const key = p.ref.idx + ':' + p.ref.sIdx; (p.severity === 'error' ? out.sigErr : out.sigWarn).add(key); }
+        });
+        return out;
+    }
+
+    function toggleNode(event, id) {
+        event.stopPropagation();
+        const el = document.getElementById(id);
+        const caret = event.target;
+        if (el.classList.contains('collapsed')) { el.classList.remove('collapsed'); caret.innerText = '▼'; }
+        else { el.classList.add('collapsed'); caret.innerText = '▶'; }
+    }
+
+    function clearActiveTree() { document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active')); }
+
+    /* ============================= EDITOR ROUTERS ============================= */
+    function showEmptyState() {
+        document.getElementById('emptyState').style.display = 'flex';
+        document.getElementById('editorTabs').style.display = 'none';
+        document.querySelectorAll('.editor-content').forEach(el => el.classList.remove('active'));
+    }
+
+    // The tab the user last chose. When switching to another message/signal/
+    // node, the same tab stays open (in the context of the new object) instead
+    // of snapping back to Properties. If the remembered tab doesn't exist for
+    // the new object type (e.g. Matrix Layout when a signal is selected), we
+    // fall back to Properties.
+    let currentTabId = 'attributes';
+
+    function setupTabs(showLayout, showVals) {
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('editorTabs').style.display = 'flex';
+        document.getElementById('tabLayout').style.display = showLayout ? 'block' : 'none';
+        document.getElementById('tabVals').style.display = showVals ? 'block' : 'none';
+
+        let desired = currentTabId;
+        if (desired === 'layout' && !showLayout) desired = 'attributes';
+        if (desired === 'values' && !showVals) desired = 'attributes';
+        activateTab(desired);
+    }
+
+    function activateTab(tabId) {
+        currentTabId = tabId;
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.editor-content').forEach(el => el.classList.remove('active'));
+        const btn = document.querySelector(`#editorTabs .tab-btn[onclick*="'${tabId}'"]`);
+        if (btn) btn.classList.add('active');
+        const content = document.getElementById(`content_${tabId}`);
+        if (content) content.classList.add('active');
+        if (tabId === 'layout' && activeType === 'msg') renderLayoutMatrix();
+        if (tabId === 'values' && activeType === 'sig') renderValueTable();
+        if (tabId === 'objattrs') renderObjAttrs();
+    }
+
+    function switchTab(tabId) { activateTab(tabId); }
+
+    /* ============================= ADD / DELETE WORKFLOWS ============================= */
+    function addNode() {
+        promptDialog('Add Node', 'Node Name', '', (val) => {
+            if (!val) return 'Name cannot be empty.';
+            const safe = val.replace(/\s+/g, '_');
+            if (!IDENT_RE.test(safe)) return 'Must start with a letter/underscore and contain only letters, digits, underscore.';
+            if (db.nodes.includes(safe)) return 'A node with this name already exists.';
+            db.nodes.push(safe);
+            renderTree();
+            openNodeEditor(safe);
+            showToast(`Node '${safe}' added.`, 'success');
+        });
+    }
+
+    function deleteNode() {
+        if (!activeNodeName) return;
+        confirmDialog('Delete Node', `Delete node <b>${escapeHtml(activeNodeName)}</b>? Messages transmitted by it will be reassigned to <b>Vector__XXX</b>.`, () => {
+            db.nodes = db.nodes.filter(n => n !== activeNodeName);
+            delete db.nodeComments[activeNodeName];
+            delete db.nodeAttrs[activeNodeName];
+            db.messages.forEach(m => { if (m.node === activeNodeName) m.node = 'Vector__XXX'; });
+            db.messages.forEach(m => m.signals.forEach(s => { s.receivers = s.receivers.filter(r => r !== activeNodeName); }));
+            if (!db.nodes.includes('Vector__XXX')) db.nodes.push('Vector__XXX');
+            activeType = null; activeNodeName = null;
+            renderTree();
+            showEmptyState();
+            showToast('Node deleted.', 'success');
+        }, 'Delete');
+    }
+
+    function addMessage() {
+        if (!activeNodeName) return;
+        const usedIds = new Set(db.messages.map(m => m.id));
+        let nextId = 100;
+        while (usedIds.has(nextId)) nextId++;
+        db.messages.push({ id: nextId, rawId: nextId, isExt: false, name: `NewMessage_${nextId}`, dlc: 8, node: activeNodeName, comment: '', attrs: {}, signals: [], isIndependent: false });
+        renderTree();
+        openMessageEditor(db.messages.length - 1);
+        showToast('Message added.', 'success');
+    }
+
+    function deleteMessage() {
+        if (activeMsgIndex === null) return;
+        const name = db.messages[activeMsgIndex].name;
+        confirmDialog('Delete Message', `Delete message <b>${escapeHtml(name)}</b> and all of its signals?`, () => {
+            db.messages.splice(activeMsgIndex, 1);
+            activeType = null; activeMsgIndex = null;
+            renderTree();
+            showEmptyState();
+            showToast('Message deleted.', 'success');
+        }, 'Delete');
+    }
+
+    function addSignal() {
+        if (activeMsgIndex === null) return;
+        const msg = db.messages[activeMsgIndex];
+        let n = 1;
+        while (msg.signals.some(s => s.name === `NewSignal${n}`)) n++;
+        msg.signals.push({ name: `NewSignal${n}`, start: 0, len: 8, order: '1', type: '+', factor: '1', offset: '0', min: '0', max: '255', unit: '', comment: '', attrs: {}, muxType: 'none', muxValue: null, receivers: [], valTable: {} });
+        renderTree();
+        openSignalEditor(activeMsgIndex, msg.signals.length - 1);
+        showToast('Signal added.', 'success');
+    }
+
+    function addIndependentSignal() {
+        let msg = db.messages.find(m => m.isIndependent);
+        if (!msg) {
+            if (!db.nodes.includes('Vector__XXX')) db.nodes.push('Vector__XXX');
+            msg = { id: 0, rawId: 3221225472, isExt: true, name: 'VECTOR__INDEPENDENT_SIG_MSG', dlc: 0, node: 'Vector__XXX', comment: '', attrs: {}, signals: [], isIndependent: true };
+            db.messages.push(msg);
+        }
+        const mIdx = db.messages.indexOf(msg);
+        let n = 1;
+        while (msg.signals.some(s => s.name === `IndepSignal${n}`)) n++;
+        msg.signals.push({ name: `IndepSignal${n}`, start: 0, len: 8, order: '1', type: '+', factor: '1', offset: '0', min: '0', max: '255', unit: '', comment: '', muxType: 'none', muxValue: null, receivers: [], valTable: {} });
+        renderTree();
+        openSignalEditor(mIdx, msg.signals.length - 1);
+        showToast('Independent signal added — not tied to any CAN message.', 'success');
+    }
+
+    function deleteSignal() {
+        if (activeMsgIndex === null || activeSigIndex === null) return;
+        const msg = db.messages[activeMsgIndex];
+        const name = msg.signals[activeSigIndex].name;
+        confirmDialog('Delete Signal', `Delete signal <b>${escapeHtml(name)}</b>?`, () => {
+            msg.signals.splice(activeSigIndex, 1);
+            if (msg.isIndependent) {
+                activeType = null; activeMsgIndex = null; activeSigIndex = null;
+                renderTree();
+                showEmptyState();
+            } else {
+                activeType = 'msg';
+                const mIdxToReturnTo = activeMsgIndex;
+                activeSigIndex = null;
+                renderTree();
+                openMessageEditor(mIdxToReturnTo);
+            }
+            showToast('Signal deleted.', 'success');
+        }, 'Delete');
+    }
+
+    /* ============================= NODE EDITOR ============================= */
+    function openNodeEditor(nName) {
+        activeType = 'node'; activeNodeName = nName;
+        clearActiveTree();
+        const match = Array.from(document.querySelectorAll('.tree-item')).find(el => el.querySelector('.tree-label') && el.querySelector('.tree-label').innerText === nName);
+        if (match) match.classList.add('active');
+
+        setupTabs(false, false);
+        const container = document.getElementById('content_attributes');
+        container.innerHTML = `
+            <div class="editor-form">
+                <div class="editor-header">
+                    <span><span class="icon-node">💻</span> Node Properties</span>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-sm primary" onclick="addMessage()">+ Add Message in Node</button>
+                        <button class="btn-sm danger" onclick="deleteNode()">🗑️ Delete Node</button>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Node Name</label>
+                        <input type="text" id="n_name" value="${escapeHtml(nName)}" oninput="updateNode()">
+                    </div>
+                    <div class="form-group full">
+                        <label>Comment</label>
+                        <textarea id="n_comment" oninput="updateNodeComment()">${escapeHtml(db.nodeComments[nName] || '')}</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateNode() {
+        const raw = document.getElementById('n_name').value.trim().replace(/\s+/g, '_');
+        if (!raw) return;
+        const idx = db.nodes.indexOf(activeNodeName);
+        if (idx === -1) return;
+        if (raw !== activeNodeName && db.nodes.includes(raw)) { showToast('A node with this name already exists.', 'error'); return; }
+        db.nodes[idx] = raw;
+        if (db.nodeComments[activeNodeName] !== undefined) { db.nodeComments[raw] = db.nodeComments[activeNodeName]; delete db.nodeComments[activeNodeName]; }
+        if (db.nodeAttrs[activeNodeName] !== undefined) { db.nodeAttrs[raw] = db.nodeAttrs[activeNodeName]; delete db.nodeAttrs[activeNodeName]; }
+        db.messages.forEach(m => { if (m.node === activeNodeName) m.node = raw; });
+        db.messages.forEach(m => m.signals.forEach(s => { s.receivers = s.receivers.map(r => r === activeNodeName ? raw : r); }));
+        activeNodeName = raw;
+        renderTree();
+    }
+
+    function updateNodeComment() {
+        db.nodeComments[activeNodeName] = document.getElementById('n_comment').value;
+    }
+
+    /* ============================= MESSAGE EDITOR ============================= */
+    function openMessageEditor(mIdx) {
+        activeType = 'msg'; activeMsgIndex = mIdx; activeSigIndex = null;
+        clearActiveTree();
+        const msg = db.messages[mIdx];
+
+        if (msg.isIndependent) {
+            setupTabs(false, false);
+            document.getElementById('content_attributes').innerHTML = `
+                <div class="editor-form">
+                    <div class="editor-header"><span><i class="icon-signal" style="margin-right:6px; background-color: var(--icon-indep);"></i> Independent Signals</span></div>
+                    <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.5;">
+                        This is Vector's reserved container for signals that are not assigned to any CAN message
+                        (<code>VECTOR__INDEPENDENT_SIG_MSG</code>). They're defined for reuse but never transmitted on the bus,
+                        so DLC, transmitter, and bit-layout checks don't apply to them. Select an individual signal in the tree to edit it.
+                    </p>
+                </div>`;
+            return;
+        }
+        const el = document.getElementById(`tree_m_${mIdx}`);
+        if (el) el.classList.add('active');
+        setupTabs(true, false);
+
+        let nodeOptions = db.nodes.map(n => `<option value="${escapeHtml(n)}" ${msg.node === n ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+
+        const container = document.getElementById('content_attributes');
+        container.innerHTML = `
+            <div class="editor-form">
+                <div class="editor-header">
+                    <span><span class="icon-m">✉</span> Message Properties</span>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-sm primary" onclick="addSignal()">+ Add Signal in Message</button>
+                        <button class="btn-sm danger" onclick="deleteMessage()">🗑️ Delete Message</button>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Name</label><input type="text" id="m_name" value="${escapeHtml(msg.name)}" oninput="updateMessage('name')">
+                    </div>
+                    <div class="form-group">
+                        <label>ID (Decimal)</label><input type="number" id="m_id" value="${msg.id}" oninput="updateMessage('id')">
+                    </div>
+                    <div class="form-group">
+                        <label>DLC (Bytes)</label><input type="number" id="m_dlc" value="${msg.dlc}" oninput="updateMessage('dlc')">
+                    </div>
+                    <div class="form-group">
+                        <label>Transmitter Node</label>
+                        <select id="m_node" onchange="updateMessage('node')">${nodeOptions}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>ID Type</label>
+                        <select id="m_ext" onchange="updateMessage('ext')">
+                            <option value="false" ${!msg.isExt ? 'selected' : ''}>Standard (11-bit)</option>
+                            <option value="true" ${msg.isExt ? 'selected' : ''}>Extended (29-bit)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cycle Time (ms) — GenMsgCycleTime</label><input type="number" id="m_cycle" value="${msg.attrs['GenMsgCycleTime'] === undefined ? '' : msg.attrs['GenMsgCycleTime']}" placeholder="default: ${db.attrDefs['GenMsgCycleTime'] ? db.attrDefs['GenMsgCycleTime'].defaultValue : 0}" oninput="updateMessage('cycle')">
+                    </div>
+                    <div class="form-group full">
+                        <label>Comment</label>
+                        <textarea id="m_comment" oninput="updateMessage('comment')">${escapeHtml(msg.comment || '')}</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateMessage(field) {
+        const msg = db.messages[activeMsgIndex];
+        if (field === 'comment') { msg.comment = document.getElementById('m_comment').value; return; }
+        const val = document.getElementById(`m_${field}`).value;
+        if (field === 'name') msg.name = val.replace(/\s+/g, '_');
+        if (field === 'id') msg.id = parseInt(val, 10) || 0;
+        if (field === 'dlc') msg.dlc = parseInt(val, 10) || 0;
+        if (field === 'node') msg.node = val;
+        if (field === 'ext') msg.isExt = (val === 'true');
+        if (field === 'cycle') { if (val === '') delete msg.attrs['GenMsgCycleTime']; else msg.attrs['GenMsgCycleTime'] = parseFloat(val); }
+
+        renderTree();
+        const el = document.getElementById(`tree_m_${activeMsgIndex}`);
+        if (el) el.classList.add('active');
+    }
+
+    /* ============================= SIGNAL EDITOR ============================= */
+    function openSignalEditor(mIdx, sIdx) {
+        activeType = 'sig'; activeMsgIndex = mIdx; activeSigIndex = sIdx;
+        clearActiveTree();
+        const el = document.getElementById(`tree_m_${mIdx}_s_${sIdx}`);
+        if (el) el.classList.add('active');
+        setupTabs(false, true);
+
+        const sig = db.messages[mIdx].signals[sIdx];
+        const receiverChips = db.nodes.map(n => {
+            const checked = sig.receivers.includes(n);
+            return `<label class="receiver-chip ${checked ? 'checked' : ''}" onclick="toggleReceiver(this,'${escapeHtml(n).replace(/'/g, "\\'")}')">
+                <input type="checkbox" ${checked ? 'checked' : ''}>${escapeHtml(n)}</label>`;
+        }).join('');
+
+        const container = document.getElementById('content_attributes');
+        container.innerHTML = `
+            <div class="editor-form">
+                <div class="editor-header">
+                    <span><i class="icon-signal" style="margin-right:6px;"></i> Signal Properties</span>
+                    <button class="btn-sm danger" onclick="deleteSignal()">🗑️ Delete Signal</button>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Name</label><input type="text" id="s_name" value="${escapeHtml(sig.name)}" oninput="updateSignal('name')">
+                    </div>
+                    <div class="form-group">
+                        <label>Start Bit</label><input type="number" id="s_start" value="${sig.start}" oninput="updateSignal('start')">
+                    </div>
+                    <div class="form-group">
+                        <label>Length (Bits)</label><input type="number" id="s_length" value="${sig.len}" oninput="updateSignal('len')">
+                    </div>
+                    <div class="form-group">
+                        <label>Byte Order</label>
+                        <select id="s_order" onchange="updateSignal('order')">
+                            <option value="1" ${sig.order === '1' ? 'selected' : ''}>Intel — Little Endian (@1)</option>
+                            <option value="0" ${sig.order === '0' ? 'selected' : ''}>Motorola — Big Endian (@0)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Value Type</label>
+                        <select id="s_type" onchange="updateSignal('type')">
+                            <option value="+" ${sig.type === '+' ? 'selected' : ''}>Unsigned</option>
+                            <option value="-" ${sig.type === '-' ? 'selected' : ''}>Signed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Multiplexing</label>
+                        <select id="s_mux" onchange="updateSignal('mux')">
+                            <option value="none" ${sig.muxType === 'none' ? 'selected' : ''}>Not multiplexed</option>
+                            <option value="M" ${sig.muxType === 'M' ? 'selected' : ''}>Multiplexor switch (M)</option>
+                            <option value="m" ${sig.muxType === 'm' ? 'selected' : ''}>Multiplexed signal (m)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="${sig.muxType === 'm' ? '' : 'display:none;'}" id="muxValGroup">
+                        <label>Multiplex Value</label><input type="number" id="s_muxval" value="${sig.muxValue === null ? 0 : sig.muxValue}" oninput="updateSignal('muxval')">
+                    </div>
+                    <div class="form-group">
+                        <label>Factor</label><input type="number" step="any" id="s_factor" value="${sig.factor}" oninput="updateSignal('factor')">
+                    </div>
+                    <div class="form-group">
+                        <label>Offset</label><input type="number" step="any" id="s_offset" value="${sig.offset}" oninput="updateSignal('offset')">
+                    </div>
+                    <div class="form-group">
+                        <label>Minimum</label><input type="number" step="any" id="s_min" value="${sig.min}" oninput="updateSignal('min')">
+                    </div>
+                    <div class="form-group">
+                        <label>Maximum</label><input type="number" step="any" id="s_max" value="${sig.max}" oninput="updateSignal('max')">
+                    </div>
+                    <div class="form-group full">
+                        <label>Unit</label><input type="text" id="s_unit" value="${escapeHtml(sig.unit)}" oninput="updateSignal('unit')">
+                    </div>
+                    <div class="form-group full">
+                        <label>Receiver Nodes</label>
+                        <div class="receiver-list">${receiverChips || '<span style="color:var(--text-muted);font-size:0.8rem;">No nodes defined yet</span>'}</div>
+                    </div>
+                    <div class="form-group full">
+                        <label>Comment</label>
+                        <textarea id="s_comment" oninput="updateSignal('comment')">${escapeHtml(sig.comment || '')}</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggleReceiver(el, nodeName) {
+        const sig = db.messages[activeMsgIndex].signals[activeSigIndex];
+        const idx = sig.receivers.indexOf(nodeName);
+        if (idx > -1) { sig.receivers.splice(idx, 1); el.classList.remove('checked'); el.querySelector('input').checked = false; }
+        else { sig.receivers.push(nodeName); el.classList.add('checked'); el.querySelector('input').checked = true; }
+    }
+
+    function updateSignal(field) {
+        const sig = db.messages[activeMsgIndex].signals[activeSigIndex];
+        if (field === 'comment') { sig.comment = document.getElementById('s_comment').value; return; }
+        if (field === 'mux') {
+            const val = document.getElementById('s_mux').value;
+            sig.muxType = val;
+            sig.muxValue = val === 'm' ? 0 : null;
+            openSignalEditor(activeMsgIndex, activeSigIndex);
+            return;
+        }
+        if (field === 'muxval') { sig.muxValue = parseInt(document.getElementById('s_muxval').value, 10) || 0; return; }
+        const val = document.getElementById(`s_${field}`).value;
+        sig[field] = val;
+        if (field === 'start' || field === 'len') sig[field] = parseInt(val, 10) || 0;
+        if (field === 'name') {
+            sig.name = val.replace(/\s+/g, '_');
+            renderTree();
+            const el = document.getElementById(`tree_m_${activeMsgIndex}_s_${activeSigIndex}`);
+            if (el) el.classList.add('active');
+        }
+    }
+
+    /* ============================= OBJECT ATTRIBUTES TAB ============================= */
+    function currentObjType() {
+        if (activeType === 'node') return 'BU_';
+        if (activeType === 'msg') return 'BO_';
+        if (activeType === 'sig') return 'SG_';
+        return '';
+    }
+
+    function renderObjAttrs() {
+        const container = document.getElementById('content_objattrs');
+        const objType = currentObjType();
+        if (!objType) { container.innerHTML = ''; return; }
+        const attrs = attrsContainerFor(objType);
+        const defs = Object.keys(db.attrDefs).map(n => db.attrDefs[n]).filter(d => d.objectType === objType);
+
+        let rows = '';
+        defs.forEach(def => {
+            const isSet = attrs[def.name] !== undefined;
+            const value = isSet ? attrs[def.name] : def.defaultValue;
+            let input = '';
+            if (def.valueType === 'ENUM') {
+                const opts = def.enumValues.map((v, i) => `<option value="${i}" ${value === i ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
+                input = `<select onchange="setObjAttr('${escapeHtml(def.name)}', this.value)">${opts}</select>`;
+            } else if (def.valueType === 'STRING') {
+                input = `<input type="text" value="${escapeHtml(String(value))}" onchange="setObjAttr('${escapeHtml(def.name)}', this.value)">`;
+            } else {
+                const step = def.valueType === 'FLOAT' ? 'any' : '1';
+                const range = def.min !== def.max ? `min="${def.min}" max="${def.max}"` : '';
+                input = `<input type="number" step="${step}" ${range} value="${value}" onchange="setObjAttr('${escapeHtml(def.name)}', this.value)">`;
+            }
+            const constraint = def.valueType === 'ENUM' ? `${def.enumValues.length} values`
+                             : (def.valueType === 'STRING' ? '—'
+                             : (def.min !== def.max ? `${def.min} … ${def.max}` : 'unrestricted'));
+            rows += `<tr>
+                <td style="font-family:var(--font-mono);">${escapeHtml(def.name)}</td>
+                <td>${def.valueType}</td>
+                <td style="color:var(--text-muted); font-size:0.75rem;">${escapeHtml(constraint)}</td>
+                <td>${input}</td>
+                <td>${isSet
+                    ? `<span style="color:#93c5fd; font-size:0.72rem; font-weight:700;">SET</span> <button class="btn-sm" style="margin-left:6px;" onclick="resetObjAttr('${escapeHtml(def.name)}')">↩ Default</button>`
+                    : `<span style="color:var(--text-muted); font-size:0.72rem;">default</span>`}</td>
+            </tr>`;
+        });
+
+        const objLabel = objType === 'BU_' ? 'Node' : (objType === 'BO_' ? 'Message' : 'Signal');
+        container.innerHTML = `
+            <div class="editor-form" style="max-width: 900px;">
+                <div class="editor-header">
+                    <span>${objLabel} Attributes</span>
+                    <button class="btn-sm primary" onclick="openAttrDefManager()">⚙ Attribute Definitions…</button>
+                </div>
+                ${defs.length === 0
+                    ? `<p style="color:var(--text-muted); font-size:0.85rem;">No attribute definitions exist for object type ${objLabel}. Create one via "Attribute Definitions…".</p>`
+                    : `<table class="data-table">
+                        <thead><tr><th>Attribute</th><th width="70px">Type</th><th width="110px">Constraint</th><th>Value</th><th width="150px">State</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                       </table>`}
+                <p style="color:var(--text-muted); font-size:0.75rem; margin-top:12px;">Values shown in grey "default" state come from the attribute definition's default and are not written to the DBC. Editing a value sets it explicitly on this object (BA_ line on export).</p>
+            </div>
+        `;
+    }
+
+    function setObjAttr(defName, rawValue) {
+        const def = db.attrDefs[defName];
+        if (!def) return;
+        const attrs = attrsContainerFor(currentObjType());
+        let value;
+        if (def.valueType === 'ENUM') value = parseInt(rawValue, 10) || 0;
+        else if (def.valueType === 'STRING') value = rawValue;
+        else {
+            value = parseFloat(rawValue);
+            if (!Number.isFinite(value)) { showToast('Value must be numeric.', 'error'); renderObjAttrs(); return; }
+            if (def.valueType !== 'FLOAT') value = Math.round(value);
+        }
+        attrs[defName] = value;
+        // Keep the Properties-page Cycle Time field in sync (PropsFromUserAttrs behavior).
+        renderObjAttrs();
+        runValidation();
+    }
+
+    function resetObjAttr(defName) {
+        const attrs = attrsContainerFor(currentObjType());
+        delete attrs[defName];
+        renderObjAttrs();
+        runValidation();
+    }
+
+    /* ============================= ATTRIBUTE DEFINITIONS MANAGER ============================= */
+    function openAttrDefManager() {
+        const names = Object.keys(db.attrDefs);
+        let rows = names.map(name => {
+            const def = db.attrDefs[name];
+            const objLabel = def.objectType === 'BU_' ? 'Node' : def.objectType === 'BO_' ? 'Message' : def.objectType === 'SG_' ? 'Signal' : 'Network';
+            const detail = def.valueType === 'ENUM' ? escapeHtml(def.enumValues.join(', '))
+                         : def.valueType === 'STRING' ? ''
+                         : (def.min !== def.max ? `${def.min} … ${def.max}` : 'unrestricted');
+            return `<tr>
+                <td style="font-family:var(--font-mono);">${escapeHtml(name)}</td>
+                <td>${objLabel}</td>
+                <td>${def.valueType}</td>
+                <td style="font-size:0.72rem; color:var(--text-muted); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${detail}">${detail}</td>
+                <td style="font-family:var(--font-mono);">${escapeHtml(displayAttrValue(def, def.defaultValue))}</td>
+                <td style="white-space:nowrap;">
+                    <button class="btn-sm" onclick="openAttrDefEditor('${escapeHtml(name)}')">Edit</button>
+                    <button class="btn-sm danger" onclick="deleteAttrDef('${escapeHtml(name)}')">✕</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        openModal('Attribute Definitions',
+            `${names.length === 0 ? '<p style="color:var(--text-muted);">No attribute definitions.</p>' : `
+             <table class="data-table" style="margin-top:0;">
+                <thead><tr><th>Name</th><th>Object</th><th>Type</th><th>Constraint / Values</th><th>Default</th><th width="110px"></th></tr></thead>
+                <tbody>${rows}</tbody>
+             </table>`}`,
+            [
+                { label: 'New Definition…', variant: 'primary', onClick: () => openAttrDefEditor(null) },
+                { label: 'Close', onClick: () => { closeModal(); if (document.getElementById('content_objattrs').classList.contains('active')) renderObjAttrs(); } }
+            ], true);
+    }
+
+    function openAttrDefEditor(existingName) {
+        const def = existingName ? db.attrDefs[existingName] : { name: '', objectType: 'BO_', valueType: 'INT', min: 0, max: 0, enumValues: [], defaultValue: 0 };
+        openModal(existingName ? `Edit Attribute: ${existingName}` : 'New Attribute Definition',
+            `<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;">
+                <div style="grid-column: span 2;">
+                    <label class="ml-label">Name</label>
+                    <input type="text" id="ad_name" value="${escapeHtml(def.name)}" ${existingName ? 'disabled style="opacity:0.6;margin-top:0;"' : 'style="margin-top:0;"'}>
+                </div>
+                <div>
+                    <label class="ml-label">Object Type</label>
+                    <select id="ad_obj" style="width:100%; margin-top:0; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:8px 10px; border-radius:4px; font-family:var(--font-mono);">
+                        <option value="" ${def.objectType === '' ? 'selected' : ''}>Network</option>
+                        <option value="BU_" ${def.objectType === 'BU_' ? 'selected' : ''}>Node (BU_)</option>
+                        <option value="BO_" ${def.objectType === 'BO_' ? 'selected' : ''}>Message (BO_)</option>
+                        <option value="SG_" ${def.objectType === 'SG_' ? 'selected' : ''}>Signal (SG_)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="ml-label">Value Type</label>
+                    <select id="ad_type" onchange="adTypeChanged()" style="width:100%; margin-top:0; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:8px 10px; border-radius:4px; font-family:var(--font-mono);">
+                        ${['INT', 'HEX', 'FLOAT', 'STRING', 'ENUM'].map(t => `<option value="${t}" ${def.valueType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div id="ad_min_wrap">
+                    <label class="ml-label">Minimum</label>
+                    <input type="number" step="any" id="ad_min" value="${def.min}" style="margin-top:0;">
+                </div>
+                <div id="ad_max_wrap">
+                    <label class="ml-label">Maximum <span style="text-transform:none; font-weight:400;">(min = max → unrestricted)</span></label>
+                    <input type="number" step="any" id="ad_max" value="${def.max}" style="margin-top:0;">
+                </div>
+                <div style="grid-column: span 2;" id="ad_enum_wrap">
+                    <label class="ml-label">Enum Values <span style="text-transform:none; font-weight:400;">(comma-separated; BA_ stores the index, so order matters)</span></label>
+                    <input type="text" id="ad_enum" value="${escapeHtml(def.enumValues.join(','))}" style="margin-top:0;">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label class="ml-label">Default Value</label>
+                    <input type="text" id="ad_default" value="${escapeHtml(displayAttrValue(def, def.defaultValue))}" style="margin-top:0;">
+                </div>
+             </div>
+             <div class="modal-error-text" id="ad_err"></div>`,
+            [
+                { label: 'Back', onClick: openAttrDefManager },
+                { label: existingName ? 'Save Changes' : 'Create', variant: 'primary', onClick: () => saveAttrDef(existingName) }
+            ], true);
+        adTypeChanged();
+    }
+
+    function adTypeChanged() {
+        const t = document.getElementById('ad_type').value;
+        document.getElementById('ad_min_wrap').style.display = (t === 'STRING' || t === 'ENUM') ? 'none' : 'block';
+        document.getElementById('ad_max_wrap').style.display = (t === 'STRING' || t === 'ENUM') ? 'none' : 'block';
+        document.getElementById('ad_enum_wrap').style.display = t === 'ENUM' ? 'block' : 'none';
+    }
+
+    function saveAttrDef(existingName) {
+        const errEl = document.getElementById('ad_err');
+        const name = existingName || document.getElementById('ad_name').value.trim();
+        if (!name) { errEl.innerText = 'Name cannot be empty.'; return; }
+        if (!existingName && db.attrDefs[name]) { errEl.innerText = 'An attribute with this name already exists.'; return; }
+
+        const valueType = document.getElementById('ad_type').value;
+        const objectType = document.getElementById('ad_obj').value;
+        const def = { name, objectType, valueType, min: 0, max: 0, enumValues: [], defaultValue: valueType === 'STRING' ? '' : 0 };
+
+        if (valueType === 'ENUM') {
+            def.enumValues = document.getElementById('ad_enum').value.split(',').map(v => v.trim()).filter(Boolean);
+            if (def.enumValues.length === 0) { errEl.innerText = 'ENUM needs at least one value.'; return; }
+        } else if (valueType !== 'STRING') {
+            def.min = parseFloat(document.getElementById('ad_min').value) || 0;
+            def.max = parseFloat(document.getElementById('ad_max').value) || 0;
+            if (def.min > def.max) { errEl.innerText = 'Minimum cannot exceed maximum.'; return; }
+        }
+
+        const rawDefault = document.getElementById('ad_default').value.trim();
+        if (valueType === 'STRING') def.defaultValue = rawDefault;
+        else if (valueType === 'ENUM') {
+            let idx = def.enumValues.indexOf(rawDefault);
+            if (idx < 0) idx = parseInt(rawDefault, 10);
+            if (!Number.isFinite(idx) || idx < 0 || idx >= def.enumValues.length) idx = 0;
+            def.defaultValue = idx;
+        } else {
+            const v = parseFloat(rawDefault);
+            def.defaultValue = Number.isFinite(v) ? (valueType === 'FLOAT' ? v : Math.round(v)) : 0;
+            if (def.min !== def.max && (def.defaultValue < def.min || def.defaultValue > def.max)) { errEl.innerText = `Default must be within ${def.min} … ${def.max}.`; return; }
+        }
+
+        // If object type changed on an existing definition, stale assignments on
+        // other object kinds would export invalid BA_ lines — clean them up.
+        if (existingName && db.attrDefs[existingName].objectType !== objectType) {
+            if (objectType !== '') delete db.netAttrs[name];
+            if (objectType !== 'BU_') Object.keys(db.nodeAttrs).forEach(n => delete db.nodeAttrs[n][name]);
+            if (objectType !== 'BO_') db.messages.forEach(m => delete m.attrs[name]);
+            if (objectType !== 'SG_') db.messages.forEach(m => m.signals.forEach(s => delete s.attrs[name]));
+        }
+
+        db.attrDefs[name] = def;
+        runValidation();
+        showToast(existingName ? `Attribute '${name}' updated.` : `Attribute '${name}' created.`, 'success');
+        openAttrDefManager();
+    }
+
+    function deleteAttrDef(name) {
+        openModal('Delete Attribute Definition',
+            `<p>Delete attribute <b>${escapeHtml(name)}</b>? All assignments of this attribute on every node, message, and signal will also be removed.</p>`,
+            [
+                { label: 'Cancel', onClick: openAttrDefManager },
+                { label: 'Delete', variant: 'danger', onClick: () => {
+                    delete db.attrDefs[name];
+                    delete db.netAttrs[name];
+                    Object.keys(db.nodeAttrs).forEach(n => delete db.nodeAttrs[n][name]);
+                    db.messages.forEach(m => { delete m.attrs[name]; m.signals.forEach(s => delete s.attrs[name]); });
+                    runValidation();
+                    showToast(`Attribute '${name}' deleted.`, 'success');
+                    openAttrDefManager();
+                } }
+            ]);
+    }
+
+    /* ============================= VALUE TABLE EDITOR ============================= */
+    function renderValueTable() {
+        const sig = db.messages[activeMsgIndex].signals[activeSigIndex];
+        const tbody = document.getElementById('valTableBody');
+        tbody.innerHTML = '';
+
+        Object.keys(sig.valTable).forEach(raw => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="number" value="${escapeHtml(raw)}" onchange="updateValueKey(this, '${escapeHtml(raw)}')"></td>
+                <td><input type="text" value="${escapeHtml(sig.valTable[raw])}" onchange="updateValueDesc('${escapeHtml(raw)}', this.value)"></td>
+                <td><button class="btn-sm danger" onclick="deleteValue('${escapeHtml(raw)}')">X</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function addValueTableRow() {
+        const sig = db.messages[activeMsgIndex].signals[activeSigIndex];
+        let nextKey = 0;
+        while (sig.valTable[nextKey] !== undefined) nextKey++;
+        sig.valTable[nextKey] = 'New_State';
+        renderValueTable();
+    }
+
+    function updateValueKey(input, oldKey) {
+        const sig = db.messages[activeMsgIndex].signals[activeSigIndex];
+        const newKey = input.value;
+        if (newKey !== oldKey) {
+            sig.valTable[newKey] = sig.valTable[oldKey];
+            delete sig.valTable[oldKey];
+            renderValueTable();
+        }
+    }
+
+    function updateValueDesc(key, desc) { db.messages[activeMsgIndex].signals[activeSigIndex].valTable[key] = desc; }
+    function deleteValue(key) { delete db.messages[activeMsgIndex].signals[activeSigIndex].valTable[key]; renderValueTable(); }
+
+    /* ============================= LAYOUT MATRIX (with correct LSB/MSB per byte order) ============================= */
+    function renderLayoutMatrix() {
+        const msg = db.messages[activeMsgIndex];
+        const mx = document.getElementById('layoutMatrix');
+        mx.innerHTML = '';
+
+        mx.appendChild(Object.assign(document.createElement('div'), { className: 'matrix-cell matrix-header' }));
+        for (let b = 7; b >= 0; b--) {
+            const div = document.createElement('div');
+            div.className = 'matrix-cell matrix-header'; div.innerText = b;
+            mx.appendChild(div);
+        }
+
+        let bitOwners = {};
+        msg.signals.forEach((sig, sIdx) => {
+            const color = sigColors[sIdx % sigColors.length];
+            // Shared helper enforces the DBC convention:
+            //   @1 = Intel / little-endian  -> start bit is the LSB, bit numbers count UP linearly.
+            //   @0 = Motorola / big-endian  -> start bit is the MSB, bits zig-zag down through
+            //        the DBC numbering (…, 9, 8 -> jump +15 -> 23, 22, …).
+            const bits = computeSignalBits(sig);
+
+            // Intel ('1'): first traversed bit (the start bit) is the LSB, last is the MSB.
+            // Motorola ('0'): first traversed bit (the start bit) is the MSB, last is the LSB.
+            bits.forEach((b, index) => {
+                if (!bitOwners[b]) bitOwners[b] = [];
+                const isFirst = index === 0;
+                const isLast = index === sig.len - 1;
+                bitOwners[b].push({
+                    name: sig.name,
+                    color: color,
+                    len: sig.len,
+                    muxType: sig.muxType,
+                    muxValue: sig.muxValue,
+                    isLsb: sig.order === '1' ? isFirst : isLast,
+                    isMsb: sig.order === '1' ? isLast : isFirst
+                });
+            });
+        });
+
+        for (let byte = 0; byte < msg.dlc; byte++) {
+            const bDiv = document.createElement('div');
+            bDiv.className = 'matrix-cell matrix-byte';
+            bDiv.innerText = `Byte ${byte}`;
+            mx.appendChild(bDiv);
+
+            for (let bitOffset = 7; bitOffset >= 0; bitOffset--) {
+                const bitIndex = (byte * 8) + bitOffset;
+                const cell = document.createElement('div');
+                cell.className = 'matrix-cell';
+
+                cell.innerHTML = `<div class="bit-num">${bitIndex}</div>`;
+
+                if (bitOwners[bitIndex]) {
+                    cell.classList.add('has-signal');
+                    const owners = bitOwners[bitIndex];
+                    const isOverlap = owners.length > 1 && owners.some((o, i) => owners.some((o2, j) => i < j && ((o.muxType !== 'm' && o2.muxType !== 'm') || (o.muxType === 'm' && o2.muxType === 'm' && o.muxValue === o2.muxValue))));
+
+                    owners.forEach(owner => {
+                        const sBlk = document.createElement('div');
+                        sBlk.className = `sig-block ${isOverlap ? 'overlap' : ''}`;
+                        sBlk.title = owner.name;
+
+                        if (!isOverlap) {
+                            sBlk.style.backgroundColor = owner.color;
+                            let innerHtml = `<span style="z-index: 2; position: relative;">${escapeHtml(owner.name)}</span>`;
+                            if (owner.len > 1) {
+                                if (owner.isLsb) innerHtml += `<div class="edge-badge">LSB</div>`;
+                                if (owner.isMsb) innerHtml += `<div class="edge-badge">MSB</div>`;
+                            } else {
+                                if (owner.isLsb) innerHtml += `<div class="edge-badge" style="font-size:0.4rem">1-BIT</div>`;
+                            }
+                            if (owner.muxType === 'M') innerHtml += `<div class="mux-badge">M</div>`;
+                            else if (owner.muxType === 'm') innerHtml += `<div class="mux-badge">m${owner.muxValue}</div>`;
+                            sBlk.innerHTML = innerHtml;
+                        } else {
+                            sBlk.innerText = 'OVERLAP';
+                        }
+                        cell.appendChild(sBlk);
+                    });
+                }
+                mx.appendChild(cell);
+            }
+        }
+
+        const legendCont = document.getElementById('layoutLegend');
+        legendCont.innerHTML = '';
+        if (msg.signals.length === 0) {
+            legendCont.innerHTML = '<span style="color:var(--text-muted)">No signals defined in this message.</span>';
+        } else {
+            msg.signals.forEach((sig, sIdx) => {
+                const color = sigColors[sIdx % sigColors.length];
+                const span = document.createElement('span');
+                span.className = 'legend-item';
+                span.innerHTML = `<div class="legend-color" style="background:${color}"></div> ${escapeHtml(sig.name)}`;
+                legendCont.appendChild(span);
+            });
+        }
+    }
+
+    /* ============================= FILE GENERATION / EXPORT ============================= */
+    function buildDbcText() {
+        let out = [];
+        out.push(`VERSION "${db.version || ''}"\n`);
+        out.push('NS_ :\n\tNS_DESC_\n\tCM_\n\tBA_DEF_\n\tBA_\n\tVAL_\n\tCAT_DEF_\n\tCAT_\n\tFILTER\n\tBA_DEF_DEF_\n\tEV_DATA_\n\tENVVAR_DATA_\n\tSGTYPE_\n\tSGTYPE_VAL_\n\tBA_DEF_SGTYPE_\n\tBA_SGTYPE_\n\tSIG_TYPE_REF_\n\tVAL_TABLE_\n\tSIG_GROUP_\n\tSIG_VALTYPE_\n\tSIGTYPE_VALTYPE_\n\tBO_TX_BU_\n\tBA_DEF_REL_\n\tBA_REL_\n\tBA_DEF_DEF_REL_\n\tBU_SG_REL_\n\tBU_EV_REL_\n\tBU_BO_REL_\n\tSG_MUL_VAL_\n');
+        out.push('BS_:\n');
+        out.push(`BU_: ${db.nodes.join(' ')}\n`);
+
+        if (db.valueTablesRaw.length > 0) {
+            out.push('');
+            db.valueTablesRaw.forEach(l => out.push(l));
+        }
+        out.push('');
+
+        db.messages.forEach(msg => {
+            const idStr = msgExportId(msg);
+
+            out.push(`BO_ ${idStr} ${msg.name}: ${msg.dlc} ${msg.node || 'Vector__XXX'}`);
+
+            msg.signals.forEach(sig => {
+                const muxToken = sig.muxType === 'M' ? ' M' : (sig.muxType === 'm' ? ` m${sig.muxValue}` : '');
+                const receivers = sig.receivers.length > 0 ? sig.receivers.join(',') : 'Vector__XXX';
+                out.push(` SG_ ${sig.name}${muxToken} : ${sig.start}|${sig.len}@${sig.order}${sig.type} (${sig.factor},${sig.offset}) [${sig.min}|${sig.max}] "${sig.unit}" ${receivers}`);
+            });
+            out.push('');
+        });
+
+        // Comments
+        db.nodes.forEach(n => { if (db.nodeComments[n]) out.push(`CM_ BU_ ${n} "${db.nodeComments[n].replace(/"/g, "'")}";`); });
+        db.messages.forEach(msg => {
+            const idStr = msgExportId(msg);
+            if (msg.comment) out.push(`CM_ BO_ ${idStr} "${msg.comment.replace(/"/g, "'")}";`);
+            msg.signals.forEach(sig => { if (sig.comment) out.push(`CM_ SG_ ${idStr} ${sig.name} "${sig.comment.replace(/"/g, "'")}";`); });
+        });
+
+        // Attribute definitions, defaults, and assignments (proper DBC section order:
+        // BA_DEF_ ... BA_DEF_REL_ (raw) ... BA_DEF_DEF_ ... BA_ ... then VAL_).
+        const defNames = Object.keys(db.attrDefs);
+        if (defNames.length > 0 || db.attrRaw.length > 0) out.push('');
+
+        defNames.forEach(name => {
+            const def = db.attrDefs[name];
+            const objTok = def.objectType ? def.objectType + ' ' : '';
+            if (def.valueType === 'ENUM') {
+                out.push(`BA_DEF_ ${objTok}"${name}" ENUM ${def.enumValues.map(v => `"${v}"`).join(',')};`);
+            } else if (def.valueType === 'STRING') {
+                out.push(`BA_DEF_ ${objTok}"${name}" STRING ;`);
+            } else {
+                out.push(`BA_DEF_ ${objTok}"${name}" ${def.valueType} ${def.min} ${def.max};`);
+            }
+        });
+
+        // Preserved relation / env-var attribute lines (round-trip verbatim)
+        db.attrRaw.forEach(l => out.push(l));
+
+        defNames.forEach(name => {
+            const def = db.attrDefs[name];
+            out.push(`BA_DEF_DEF_ "${name}" ${exportAttrValue(def, def.defaultValue, true)};`);
+        });
+
+        // Assignments — network, then nodes, then messages, then signals.
+        Object.keys(db.netAttrs).forEach(name => {
+            const def = db.attrDefs[name];
+            if (def) out.push(`BA_ "${name}" ${exportAttrValue(def, db.netAttrs[name], false)};`);
+        });
+        Object.keys(db.nodeAttrs).forEach(nodeName => {
+            if (!db.nodes.includes(nodeName)) return;
+            Object.keys(db.nodeAttrs[nodeName]).forEach(name => {
+                const def = db.attrDefs[name];
+                if (def) out.push(`BA_ "${name}" BU_ ${nodeName} ${exportAttrValue(def, db.nodeAttrs[nodeName][name], false)};`);
+            });
+        });
+        db.messages.forEach(msg => {
+            const idStr = msgExportId(msg);
+            Object.keys(msg.attrs).forEach(name => {
+                const def = db.attrDefs[name];
+                if (def) out.push(`BA_ "${name}" BO_ ${idStr} ${exportAttrValue(def, msg.attrs[name], false)};`);
+            });
+            msg.signals.forEach(sig => {
+                Object.keys(sig.attrs).forEach(name => {
+                    const def = db.attrDefs[name];
+                    if (def) out.push(`BA_ "${name}" SG_ ${idStr} ${sig.name} ${exportAttrValue(def, sig.attrs[name], false)};`);
+                });
+            });
+        });
+
+        // Value tables (inline VAL_ per signal)
+        out.push('');
+        db.messages.forEach(msg => {
+            const idStr = msgExportId(msg);
+
+            msg.signals.forEach(sig => {
+                const keys = Object.keys(sig.valTable);
+                if (keys.length > 0) {
+                    let valStr = `VAL_ ${idStr} ${sig.name} `;
+                    keys.sort((a, b) => b - a).forEach(k => { valStr += `${k} "${sig.valTable[k]}" `; });
+                    valStr += ';';
+                    out.push(valStr);
+                }
+            });
+        });
+
+        return out.join('\n');
+    }
+
+    function requestExport() {
+        if (db.messages.length === 0 && db.nodes.length === 0) { showToast('Database is empty — nothing to export.', 'error'); return; }
+        const problems = runValidation();
+        const errors = problems.filter(p => p.severity === 'error');
+        if (errors.length > 0) {
+            openModal('Cannot Save — Validation Errors',
+                `<p>The database has <b>${errors.length} error(s)</b> that must be resolved before exporting a valid DBC file.</p>
+                 <div style="margin-top:10px; max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:4px;">
+                    ${errors.slice(0, 25).map(e => `<div class="problem-row error" style="cursor:default;"><span class="problem-icon">⛔</span><span>${escapeHtml(e.message)}</span></div>`).join('')}
+                 </div>`,
+                [
+                    { label: 'Go to Problems', onClick: () => { closeModal(); document.getElementById('problemsPanel').classList.add('open'); } },
+                    { label: 'Export Anyway', variant: 'danger', onClick: () => { closeModal(); doExport(); } }
+                ]);
+            return;
+        }
+        doExport();
+    }
+
+    function doExport() {
+        // "Save As" dialog: let the user rename the file before the download starts.
+        const suggested = loadedFileName ? loadedFileName.replace(/\.dbc$/i, '') : 'Network_DB';
+        openModal('Save Database As',
+            `<label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">File Name</label>
+             <div style="display:flex; align-items:center; gap:6px;">
+                <input type="text" id="exportNameInput" value="${escapeHtml(suggested)}" style="flex:1;">
+                <span style="font-family:var(--font-mono); color:var(--text-muted); margin-top:8px;">.dbc</span>
+             </div>
+             <div class="modal-error-text" id="exportNameErr"></div>`,
+            [
+                { label: 'Cancel', onClick: closeModal },
+                { label: 'Save', variant: 'primary', onClick: () => {
+                    const raw = document.getElementById('exportNameInput').value.trim().replace(/\.dbc$/i, '');
+                    if (!raw) { document.getElementById('exportNameErr').innerText = 'File name cannot be empty.'; return; }
+                    if (/[\\/:*?"<>|]/.test(raw)) { document.getElementById('exportNameErr').innerText = 'File name contains invalid characters: \\ / : * ? " < > |'; return; }
+                    closeModal();
+                    downloadDbc(raw + '.dbc');
+                } }
+            ]);
+        setTimeout(() => {
+            const el = document.getElementById('exportNameInput');
+            if (el) {
+                el.focus(); el.select();
+                el.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') { ev.preventDefault(); document.querySelector('#modalFooter .modal-btn.primary').click(); }
+                });
+            }
+        }, 50);
+    }
+
+    function downloadDbc(fileName) {
+        const text = buildDbcText();
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        loadedFileName = fileName;
+        document.getElementById('fileBadge').innerText = fileName;
+        if (activeDbIndex >= 0 && dbFiles[activeDbIndex]) { dbFiles[activeDbIndex].name = fileName; renderDbSelector(); }
+        showToast(`Saved as ${fileName}`, 'success');
+    }
+
+    /* ============================= MATLAB EXPORT =============================
+       Ported from the standalone "Matlab CAN data directory" tool. The flow is
+       identical: search & select messages -> output name -> generate script.
+       The generated .m file layout matches the golden Ecotron sample:
+       function header, if(255==type) list block, switch/case per message,
+       ECOCAN struct fields, interval taken from the GenMsgCycleTime attribute
+       (-1 when unassigned), per-field name/units/start_bit/bit_length/
+       byte_order/data_type/scale/offset plus multiplex_type/multiplex_value,
+       and the independent container exported with its reserved 0x40000000 id.
+       One deliberate difference: byte_order follows the correct DBC convention
+       (@1 = LITTLE_ENDIAN / Intel, @0 = BIG_ENDIAN / Motorola). The standalone
+       tool had this mapping inverted. */
+    let matlabSelected = new Set();
+    let matlabSearchTimeout = null;
+    const MATLAB_DISPLAY_LIMIT = 500;
+
+    // Message dictionary keyed by name — last definition wins, matching the
+    // standalone tool's `parsedDbcData[name] = currentMsg` overwrite behavior.
+    function matlabMsgDict() {
+        const dict = {};
+        db.messages.forEach(m => { dict[m.name] = m; });
+        return dict;
+    }
+
+    function matlabAllNames() {
+        const seen = new Set();
+        const names = [];
+        db.messages.forEach(m => { if (!seen.has(m.name)) { seen.add(m.name); names.push(m.name); } });
+        return names;
+    }
+
+    function openMatlabExport(preserveSelection) {
+        if (db.messages.length === 0) { showToast('Load or create a database with messages first.', 'error'); return; }
+        if (!preserveSelection) matlabSelected = new Set();
+
+        openModal('Generate MATLAB Script',
+            `<label class="ml-label">1. Search &amp; Select Messages</label>
+             <input type="text" id="mlSearch" placeholder="Type to search available messages..." oninput="mlHandleSearch()" style="margin-top:0;">
+             <div class="ml-actions">
+                <button class="btn-sm primary" onclick="mlSelectAllVisible()">Select All Visible</button>
+                <button class="btn-sm" onclick="mlClearAll()">Clear Selections</button>
+             </div>
+             <div class="ml-list" id="mlList"></div>
+             <span class="ml-status" id="mlStatus">0 messages selected.</span>
+             <label class="ml-label" style="margin-top:16px;">2. Output Configuration</label>
+             <input type="text" id="mlOutputName" value="Ev_Demo_M.m" style="margin-top:0;">`,
+            [
+                { label: 'Cancel', onClick: closeModal },
+                { label: 'Generate MATLAB Script', variant: 'primary', onClick: generateMatlabScript }
+            ], true);
+
+        renderMatlabList();
+    }
+
+    function mlHandleSearch() {
+        clearTimeout(matlabSearchTimeout);
+        matlabSearchTimeout = setTimeout(renderMatlabList, 250);
+    }
+
+    function renderMatlabList() {
+        const listEl = document.getElementById('mlList');
+        if (!listEl) return;
+        const query = (document.getElementById('mlSearch').value || '').toLowerCase();
+        const allNames = matlabAllNames();
+        let filtered = allNames;
+        if (query !== '') filtered = allNames.filter(name => name.toLowerCase().includes(query));
+
+        const displayData = filtered.slice(0, MATLAB_DISPLAY_LIMIT);
+        let htmlStr = '';
+        displayData.forEach(name => {
+            const isChecked = matlabSelected.has(name) ? 'checked' : '';
+            htmlStr += `<div class="ml-item"><input type="checkbox" id="chk_ml_${escapeHtml(name)}" value="${escapeHtml(name)}" onchange="mlToggleSelection(this)" ${isChecked}><label for="chk_ml_${escapeHtml(name)}">${escapeHtml(name)}</label></div>`;
+        });
+
+        if (displayData.length === 0) htmlStr = `<div class="ml-empty">No messages match your search.</div>`;
+        listEl.innerHTML = htmlStr;
+
+        document.getElementById('mlStatus').innerHTML =
+            `Showing ${filtered.length > MATLAB_DISPLAY_LIMIT ? 'top ' + MATLAB_DISPLAY_LIMIT + ' of ' + filtered.length : filtered.length} matches. | <b>${matlabSelected.size} selected.</b>`;
+    }
+
+    function mlToggleSelection(checkbox) {
+        if (checkbox.checked) matlabSelected.add(checkbox.value);
+        else matlabSelected.delete(checkbox.value);
+        mlUpdateStatus();
+    }
+
+    function mlSelectAllVisible() {
+        document.querySelectorAll('#mlList input[type="checkbox"]').forEach(chk => { chk.checked = true; matlabSelected.add(chk.value); });
+        mlUpdateStatus();
+    }
+
+    function mlClearAll() {
+        matlabSelected.clear();
+        document.querySelectorAll('#mlList input[type="checkbox"]').forEach(chk => { chk.checked = false; });
+        mlUpdateStatus();
+    }
+
+    function mlUpdateStatus() {
+        const statusEl = document.getElementById('mlStatus');
+        if (!statusEl) return;
+        const text = statusEl.innerHTML.split('|')[0];
+        statusEl.innerHTML = `${text}| <b>${matlabSelected.size} selected.</b>`;
+    }
+
+    function generateMatlabScript() {
+        const dict = matlabMsgDict();
+        if (Object.keys(dict).length === 0) return;
+
+        let targetMsgs = Array.from(matlabSelected);
+        const requestedName = document.getElementById('mlOutputName').value;
+
+        if (targetMsgs.length === 0) {
+            // Same fallback as the standalone tool's confirm(): offer to convert everything.
+            openModal('Convert All Messages?',
+                `<p>You haven't selected any specific messages.</p>
+                 <p style="margin-top:8px;">Do you want to convert <b>ALL ${matlabAllNames().length} parsed messages</b> in the entire database?</p>`,
+                [
+                    { label: 'Back', onClick: () => { openMatlabExport(true); const el = document.getElementById('mlOutputName'); if (el) el.value = requestedName; } },
+                    { label: 'Convert All', variant: 'primary', onClick: () => { doGenerateMatlab(matlabAllNames(), requestedName); } }
+                ]);
+            return;
+        }
+        doGenerateMatlab(targetMsgs, requestedName);
+    }
+
+    function doGenerateMatlab(targetMsgs, requestedName) {
+        const dict = matlabMsgDict();
+
+        // --- 1. Get and format the filename/function name first ---
+        let rawInputName = (requestedName || '').trim() || 'Ev_Demo_M';
+        // Remove '.m' if the user accidentally typed it, so we get a clean function name
+        let functionName = rawInputName.endsWith('.m') ? rawInputName.slice(0, -2) : rawInputName;
+        // Ensure the actual downloaded file has the .m extension
+        let finalFilename = functionName + '.m';
+
+        const structName = 'ECOCAN';
+        let outStr = [];
+
+        // --- 2. Inject the dynamic functionName here ---
+        outStr.push(`function msg = ${functionName}(msgname,type)`);
+
+        outStr.push(`  if(255==type)`);
+        outStr.push(`  msg = struct;`);
+        outStr.push(`  msg.num=${targetMsgs.length};`);
+        outStr.push(`  msg.list= cell(1, msg.num);`);
+
+        targetMsgs.forEach((msgName, idx) => outStr.push(`  msg.list{${idx + 1}}='${msgName}';`));
+
+        outStr.push(`  else `);
+        outStr.push(`  msg = struct;`);
+        outStr.push(`  switch msgname `);
+
+        targetMsgs.forEach((msgName, idx) => {
+            const msg = dict[msgName];
+            if (!msg) return;
+            // Independent container: raw id 0xC0000000 with the extended-flag
+            // bit (31) stripped -> 0x40000000, per the golden Ecotron sample.
+            const idHex = msg.isIndependent ? '40000000' : msg.id.toString(16).toUpperCase();
+            const idext = msg.isExt ? 'EXTENDED' : 'STANDARD';
+            // interval comes from an explicit GenMsgCycleTime assignment; -1 when unassigned.
+            const cyc = msg.attrs && msg.attrs['GenMsgCycleTime'] !== undefined ? msg.attrs['GenMsgCycleTime'] : -1;
+
+            outStr.push(`%%`);
+            outStr.push(`%Network Node:${msg.node}`);
+            outStr.push(`%Message Name:${msgName}`);
+            outStr.push(`%Message Number:${idx + 1}`);
+            outStr.push(`case '${msgName}'`);
+
+            outStr.push(`    ${structName}.${msgName} = struct;`);
+            outStr.push(`    ${structName}.${msgName}.name = '${msgName}';`);
+            outStr.push(`    ${structName}.${msgName}.description = '${msgName}';`);
+            outStr.push(`    ${structName}.${msgName}.protocol  = 'ECOCAN';`);
+            outStr.push(`    ${structName}.${msgName}.id = hex2dec('${idHex}');`);
+            outStr.push(`    ${structName}.${msgName}.idext = '${idext}';`);
+            outStr.push(`    ${structName}.${msgName}.payload_size =${msg.dlc};`);
+            outStr.push(`    ${structName}.${msgName}.interval =${cyc};\n`);
+
+            msg.signals.forEach((sig, sIdx) => {
+                // Correct DBC convention: @1 = Intel/little-endian, @0 = Motorola/big-endian.
+                const byteOrder = sig.order === '1' ? 'LITTLE_ENDIAN' : 'BIG_ENDIAN';
+                const dataType = sig.type === '+' ? 'UNSIGNED' : 'SIGNED';
+                const scale = parseFloat(sig.factor);
+                const offset = parseFloat(sig.offset);
+                const muxType = sig.muxType === 'M' ? 'Multiplexer' : (sig.muxType === 'm' ? 'Multiplexed' : 'Standard');
+                const muxValue = sig.muxType === 'm' ? sig.muxValue : 0;
+
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.name = '${sig.name}';`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.units = '${sig.unit}';`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.start_bit = ${sig.start};`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.bit_length = ${sig.len};`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.byte_order = '${byteOrder}';`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.data_type = '${dataType}';`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.scale = ${scale};`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.offset = ${offset};`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.multiplex_type = '${muxType}';`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.multiplex_value = ${muxValue};\n`);
+            });
+            outStr.push('');  // extra blank line after each message block (golden format)
+        });
+
+        outStr.push(`  end`);
+        outStr.push(`  try`);
+        outStr.push(`    msg = ${structName}.(msgname);`);
+        outStr.push(`  catch`);
+        outStr.push(`  end`);
+        outStr.push(`end`);
+        outStr.push(`end`);
+        outStr.push('');
+
+        // --- 3. Use the finalFilename for the download ---
+        const blob = new Blob([outStr.join('\n')], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = finalFilename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        closeModal();
+        showToast(`MATLAB script generated: ${finalFilename} (${targetMsgs.length} message(s))`, 'success');
+    }
+</script>
+
+<div id="traceRoot" style="display:none; flex:1; min-height:0; flex-direction:column;"></div>
+
+<script>
+/* =============================================================================
+   candb_trace.js — CAN Trace tool (Kvaser CANKing style) for CANdb++ Web
+   Loaded by candb_web.html. Shares the page's global scope, so it uses the
+   live `db` object plus computeSignalBits(), escapeHtml(), showToast() and
+   openModal() from the database tool directly — decoding always reflects the
+   database exactly as currently edited.
+
+   Frame sources:
+     - Live:   WebSocket to kvaser_bridge.py (python-can, Kvaser Leaf Light v2)
+     - Replay: log file playback (Vector .asc, PCAN .trc, candump .log)
+============================================================================= */
+
+/* ============================= VIEW SWITCHING ============================= */
+function switchView(view) {
+    const dbWs = document.getElementById('dbWorkspace');
+    const trace = document.getElementById('traceRoot');
+    document.getElementById('viewBtnDb').classList.toggle('active', view === 'db');
+    document.getElementById('viewBtnTrace').classList.toggle('active', view === 'trace');
+    if (view === 'trace') {
+        dbWs.style.display = 'none';
+        trace.style.display = 'flex';
+        traceInit();
+        traceRebuildDbMaps();
+    } else {
+        dbWs.style.display = 'flex';
+        trace.style.display = 'none';
+    }
+}
+
+/* ============================= STATE ============================= */
+const TR = {
+    built: false,
+    source: 'live',           // 'live' | 'replay'
+    ws: null,
+    connected: false,
+    running: false,           // replay playing
+    replayState: 'stopped',   // 'stopped' | 'playing' | 'paused'
+    replayWallStart: 0,       // performance.now() at (adjusted) replay start
+    replayLogStart: 0,        // log timestamp of first frame
+    replayPausedAt: 0,        // performance.now() at pause
+    mode: 'fixed',            // 'fixed' | 'scroll'
+    t0: null,                 // first frame timestamp (relative time base)
+    frameCount: 0,
+    lastRateCount: 0,
+    idMap: new Map(),         // decode map: 'S<id>'/'X<id>' -> message object
+    fixedRows: new Map(),     // key -> { frame, count, delta, lastT, el, expanded }
+    pendingScroll: [],        // frames awaiting rAF flush in scrolling mode
+    scrollCap: 2000,
+    rafScheduled: false,
+    expandedFixed: new Set(),
+    replayFrames: [],
+    replayTimer: null,
+    replayIdx: 0,
+    txTimers: new Map(),      // msgName -> interval id
+    autoScroll: true,
+    logStartedAt: null,   // 'Logging started at' from Kvaser CSV preamble
+    logFileName: null
+};
+
+/* ============================= UI CONSTRUCTION ============================= */
+function traceInit() {
+    if (TR.built) return;
+    TR.built = true;
+
+    const style = document.createElement('style');
+    style.textContent = `
+        .tr-bar { display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-wrap:wrap; flex-shrink:0; }
+        .tr-bar label { font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-right:2px; }
+        .tr-bar input, .tr-bar select { background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:5px 8px; border-radius:4px; font-family:var(--font-mono); font-size:0.78rem; outline:none; }
+        .tr-bar input:focus, .tr-bar select:focus { border-color:var(--accent); }
+        .tr-dot { width:10px; height:10px; border-radius:50%; background:#64748b; flex-shrink:0; }
+        .tr-dot.on { background:#22c55e; box-shadow:0 0 6px #22c55e; }
+        .tr-dot.err { background:var(--error); }
+        .tr-grid-wrap { flex:1; overflow-y:auto; background:var(--bg-base); min-height:0; }
+        .tr-table { width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.78rem; }
+        .tr-table th { position:sticky; top:0; background:#141e2e; color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; padding:6px 10px; text-align:left; border-bottom:1px solid var(--border-color); z-index:5; }
+        .tr-table td { padding:4px 10px; border-bottom:1px solid rgba(255,255,255,0.04); white-space:nowrap; }
+        .tr-table tr.tr-row { cursor:pointer; }
+        .tr-table tr.tr-row:hover { background:rgba(255,255,255,0.04); }
+        .tr-table tr.tr-row.flash { animation:trFlash 0.3s; }
+        @keyframes trFlash { from { background:rgba(59,130,246,0.25); } to { background:transparent; } }
+        .tr-id { color:#fbbf24; font-weight:700; }
+        .tr-name { color:#93c5fd; }
+        .tr-name.unknown { color:var(--text-muted); font-style:italic; }
+        .tr-dir-tx { color:#f472b6; font-weight:700; }
+        .tr-sig-row td { background:rgba(59,130,246,0.05); padding:0; border-bottom:1px solid var(--border-color); }
+        .tr-sig-table { width:100%; border-collapse:collapse; font-size:0.74rem; }
+        .tr-sig-table td { padding:3px 10px 3px 34px; border:none; color:var(--text-main); }
+        .tr-sig-table .sn { color:#6ee7b7; }
+        .tr-sig-table .sv { color:#fff; font-weight:700; }
+        .tr-sig-table .su { color:var(--text-muted); }
+        .tr-sig-table .svt { color:#c4b5fd; }
+        .tr-footer { display:flex; align-items:center; gap:16px; padding:5px 14px; background:var(--bg-panel); border-top:1px solid var(--border-color); font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono); flex-shrink:0; }
+        .tr-tx { background:var(--bg-panel); border-top:1px solid var(--border-color); flex-shrink:0; max-height:270px; overflow-y:auto; }
+        .tr-tx-header { padding:7px 14px; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); cursor:pointer; display:flex; justify-content:space-between; background:#141e2e; }
+        .tr-tx-body { padding:10px 14px; display:none; }
+        .tr-tx-body.open { display:block; }
+        .tr-tx-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px 14px; margin-top:10px; }
+        .tr-tx-grid .fg label { display:block; font-size:0.68rem; color:var(--text-muted); font-weight:700; margin-bottom:2px; font-family:var(--font-main); }
+        .tr-tx-grid .fg input { width:100%; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:4px 8px; border-radius:4px; font-family:var(--font-mono); font-size:0.78rem; outline:none; }
+        .tr-data-preview { font-family:var(--font-mono); color:#fbbf24; font-size:0.85rem; letter-spacing:1px; }
+        .tr-chk { display:flex; align-items:center; gap:5px; font-size:0.75rem; color:var(--text-main); cursor:pointer; user-select:none; }
+        .tr-chk input { accent-color:var(--accent); }
+    `;
+    document.head.appendChild(style);
+
+    document.getElementById('traceRoot').innerHTML = `
+        <div class="tr-bar">
+            <label>Source</label>
+            <select id="trSource" onchange="trSourceChanged()">
+                <option value="live">Live — Kvaser via WebSocket</option>
+                <option value="serial">Live — Serial (host device)</option>
+                <option value="wifi">Live — WiFi device (WebSocket)</option>
+                <option value="replay">Replay — Log file</option>
+            </select>
+
+            <span id="trLiveCtl" style="display:flex; align-items:center; gap:8px;">
+                <input type="text" id="trWsUrl" value="ws://localhost:8765" style="width:170px;">
+                <label>Bitrate</label>
+                <select id="trBitrate">
+                    <option value="125000">125 k</option><option value="250000">250 k</option>
+                    <option value="500000" selected>500 k</option><option value="1000000">1 M</option>
+                </select>
+                <label>Ch</label>
+                <select id="trChannel"><option value="0">0</option><option value="1">1</option></select>
+                <label class="tr-chk"><input type="checkbox" id="trSilent"> Silent</label>
+                <button class="toolbar-btn primary" id="trConnectBtn" onclick="trToggleConnect()">Connect</button>
+            </span>
+
+            <span id="trSerialCtl" style="display:none; align-items:center; gap:8px; flex-wrap:wrap;"></span>
+
+            <span id="trWifiCtl" style="display:none; align-items:center; gap:8px; flex-wrap:wrap;"></span>
+
+            <span id="trReplayCtl" style="display:none; align-items:center; gap:8px;">
+                <input type="file" id="trLogFile" accept=".asc,.trc,.log,.txt,.csv" style="font-size:0.72rem; color:var(--text-muted);" onchange="trReplayFileChanged()">
+                <label>Speed</label>
+                <select id="trSpeed"><option value="1">1×</option><option value="10">10×</option><option value="100">100×</option><option value="0">Max</option></select>
+                <button class="toolbar-btn primary" id="trPlayBtn" onclick="trToggleReplay()">▶ Play</button>
+            </span>
+
+            <span class="tr-dot" id="trDot"></span>
+            <span style="font-size:0.72rem; color:var(--text-muted);" id="trStatus">Disconnected</span>
+
+            <span style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                <label>Mode</label>
+                <select id="trMode" onchange="trModeChanged()"><option value="fixed">Fixed</option><option value="scroll">Scrolling</option></select>
+                <input type="text" id="trFilter" placeholder="Filter ID/name…" style="width:130px;" oninput="trApplyFilter()">
+                <label class="tr-chk"><input type="checkbox" id="trDbcOnly" onchange="trApplyFilter()"> DBC only</label>
+                <button class="toolbar-btn" onclick="plotterToggle()">📈 Plotter</button>
+                <button class="toolbar-btn" onclick="trClear()">🧹 Clear</button>
+            </span>
+        </div>
+
+        <div class="tr-grid-wrap" id="trGridWrap">
+            <table class="tr-table">
+                <thead><tr>
+                    <th style="width:95px;">Time (s)</th><th style="width:80px;">ΔT (ms)</th>
+                    <th style="width:70px;" id="trCountHead">Count</th><th style="width:40px;">Dir</th>
+                    <th style="width:85px;">ID</th><th style="width:200px;">Name</th>
+                    <th style="width:45px;">DLC</th><th>Data</th>
+                </tr></thead>
+                <tbody id="trBody"></tbody>
+            </table>
+        </div>
+
+        <div class="tr-footer">
+            <span>Frames: <b id="trTotal" style="color:var(--text-main);">0</b></span>
+            <span>Rate: <b id="trRate" style="color:var(--text-main);">0</b> fr/s</span>
+            <span>Unique IDs: <b id="trUnique" style="color:var(--text-main);">0</b></span>
+            <span id="trDbInfo"></span>
+        </div>
+
+        <div class="tr-tx">
+            <div class="tr-tx-header" onclick="trToggleTx()"><span>📤 Transmit Panel</span><span id="trTxCaret">▲</span></div>
+            <div class="tr-tx-body" id="trTxBody">
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Message</label>
+                    <select id="trTxMsg" onchange="trTxMsgChanged()" style="background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:5px 8px; border-radius:4px; font-family:var(--font-mono); font-size:0.78rem; min-width:220px;"></select>
+                    <span>Data: <span class="tr-data-preview" id="trTxPreview">—</span></span>
+                    <label style="font-size:0.7rem; color:var(--text-muted); font-weight:700;">Period (ms)</label>
+                    <input type="number" id="trTxPeriod" value="100" style="width:80px; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:5px 8px; border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">
+                    <button class="toolbar-btn" onclick="trTxOnce()">Send Once</button>
+                    <button class="toolbar-btn primary" id="trTxCyclicBtn" onclick="trTxCyclicToggle()">▶ Start Cyclic</button>
+                </div>
+                <div class="tr-tx-grid" id="trTxSignals"></div>
+            </div>
+        </div>
+    `;
+
+    if (typeof serialInitUI === 'function') serialInitUI();
+    if (typeof wifiInitUI === 'function') wifiInitUI();
+}
+
+/* ============================= DBC DECODE MAPS ============================= */
+function traceRebuildDbMaps() {
+    // Decode against EVERY loaded DBC file, not just the one active in the
+    // Database explorer. On an ID collision between files, the active database
+    // wins, then earlier-loaded files take precedence.
+    TR.idMap.clear();
+    const entries = (typeof allDbEntries === 'function') ? allDbEntries().slice() : [{ db }];
+    if (typeof activeDbIndex !== 'undefined' && activeDbIndex > 0 && activeDbIndex < entries.length) {
+        entries.unshift(entries.splice(activeDbIndex, 1)[0]);
+    }
+    entries.forEach(e => e.db.messages.forEach(msg => {
+        if (msg.isIndependent) return;
+        const key = (msg.isExt ? 'X' : 'S') + msg.id;
+        if (!TR.idMap.has(key)) TR.idMap.set(key, msg);
+    }));
+    const el = document.getElementById('trDbInfo');
+    if (el) el.innerHTML = `DBC: <b style="color:var(--text-main);">${TR.idMap.size}</b> decodable messages from <b style="color:var(--text-main);">${entries.length}</b> file(s)`;
+    trTxPopulateMsgList();
+}
+
+function traceLookupMsg(id, ext) {
+    // Try exact ext flag first, then the other — some logs lose the ext marker.
+    return TR.idMap.get((ext ? 'X' : 'S') + id) || TR.idMap.get((ext ? 'S' : 'X') + id) || null;
+}
+
+/* ============================= SIGNAL DECODE / ENCODE =============================
+   Bit mapping contract from computeSignalBits (shared with the database tool):
+     Intel (@1):    bits[0] = LSB … bits[len-1] = MSB
+     Motorola (@0): bits[0] = MSB … bits[len-1] = LSB
+   So raw-value bit k (k = 0 is LSB) lives at:
+     Intel:    bits[k]
+     Motorola: bits[len-1-k]                                                     */
+function rawBitPositions(sig) {
+    const bits = computeSignalBits(sig);
+    return sig.order === '1' ? bits : bits.slice().reverse(); // index k -> position of raw bit k
+}
+
+function traceDecodeRaw(sig, data) {
+    const pos = rawBitPositions(sig);
+    let raw = 0n;
+    for (let k = 0; k < pos.length; k++) {
+        const p = pos[k];
+        const byte = p >> 3, bit = p & 7;
+        if (byte < data.length && (data[byte] >> bit) & 1) raw |= (1n << BigInt(k));
+    }
+    if (sig.type === '-') { // sign extend
+        const signBit = 1n << BigInt(sig.len - 1);
+        if (raw & signBit) raw -= (1n << BigInt(sig.len));
+    }
+    return raw;
+}
+
+function traceDecodeFrame(msg, data) {
+    const rows = [];
+    let muxVal = null;
+    const muxor = msg.signals.find(s => s.muxType === 'M');
+    if (muxor) muxVal = Number(traceDecodeRaw(muxor, data));
+
+    msg.signals.forEach(sig => {
+        if (sig.muxType === 'm' && sig.muxValue !== muxVal) return; // inactive mux branch
+        const raw = traceDecodeRaw(sig, data);
+        const rawNum = Number(raw);
+        const phys = rawNum * parseFloat(sig.factor) + parseFloat(sig.offset);
+        const vt = sig.valTable[String(rawNum)];
+        rows.push({
+            name: sig.name, raw: rawNum,
+            phys: Number.isInteger(phys) ? phys : +phys.toFixed(4),
+            unit: sig.unit, vt: vt || null,
+            mux: sig.muxType === 'M' ? 'M' : (sig.muxType === 'm' ? 'm' + sig.muxValue : '')
+        });
+    });
+    return rows;
+}
+
+function traceEncodeFrame(msg, physByName) {
+    const data = new Uint8Array(Math.max(msg.dlc, 1));
+    let muxVal = null;
+    const muxor = msg.signals.find(s => s.muxType === 'M');
+    if (muxor && physByName[muxor.name] !== undefined) {
+        muxVal = Math.round((physByName[muxor.name] - parseFloat(muxor.offset)) / parseFloat(muxor.factor));
+    }
+    msg.signals.forEach(sig => {
+        if (sig.muxType === 'm' && sig.muxValue !== muxVal) return;
+        const phys = physByName[sig.name];
+        if (phys === undefined || !Number.isFinite(phys)) return;
+        const factor = parseFloat(sig.factor) || 1;
+        let raw = BigInt(Math.round((phys - parseFloat(sig.offset)) / factor));
+        const maxRaw = sig.type === '+' ? (1n << BigInt(sig.len)) - 1n : (1n << BigInt(sig.len - 1)) - 1n;
+        const minRaw = sig.type === '+' ? 0n : -(1n << BigInt(sig.len - 1));
+        if (raw > maxRaw) raw = maxRaw;
+        if (raw < minRaw) raw = minRaw;
+        if (raw < 0n) raw += (1n << BigInt(sig.len)); // two's complement
+        const pos = rawBitPositions(sig);
+        for (let k = 0; k < pos.length; k++) {
+            const p = pos[k];
+            const byte = p >> 3, bit = p & 7;
+            if (byte >= data.length) continue;
+            if ((raw >> BigInt(k)) & 1n) data[byte] |= (1 << bit);
+            else data[byte] &= ~(1 << bit);
+        }
+    });
+    return Array.from(data);
+}
+
+/* ============================= FRAME INGESTION ============================= */
+function traceOnFrame(f) {
+    // f: { t (seconds float), id, ext, dlc, data:[], dir:'rx'|'tx' }
+    if (TR.t0 === null) TR.t0 = f.t;
+    TR.frameCount++;
+    if (TR.mode === 'fixed') traceFixedUpdate(f);
+    else { TR.pendingScroll.push(f); traceScheduleFlush(); }
+    if (typeof plotterOnFrame === 'function') plotterOnFrame(f);
+    traceUpdateFooter();
+}
+
+function traceScheduleFlush() {
+    if (TR.rafScheduled) return;
+    TR.rafScheduled = true;
+    requestAnimationFrame(() => { TR.rafScheduled = false; traceFlushScroll(); });
+}
+
+function traceHexData(data, dlc) { return data.slice(0, dlc).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' '); }
+
+function traceRowVisible(id, name) {
+    const filter = (document.getElementById('trFilter').value || '').toLowerCase();
+    const dbcOnly = document.getElementById('trDbcOnly').checked;
+    if (dbcOnly && !name) return false;
+    if (!filter) return true;
+    return id.toString(16).toLowerCase().includes(filter) || (name && name.toLowerCase().includes(filter));
+}
+
+/* --- Fixed mode: one live-updating row per ID --- */
+function traceFixedUpdate(f) {
+    const key = (f.ext ? 'X' : 'S') + f.id;
+    const dbMsg = traceLookupMsg(f.id, f.ext);
+    let row = TR.fixedRows.get(key);
+    if (!row) {
+        row = { count: 0, lastT: f.t, el: null, sigEl: null };
+        TR.fixedRows.set(key, row);
+        const tr = document.createElement('tr');
+        tr.className = 'tr-row';
+        tr.onclick = () => traceToggleExpandFixed(key);
+        document.getElementById('trBody').appendChild(tr);
+        row.el = tr;
+        const sigTr = document.createElement('tr');
+        sigTr.className = 'tr-sig-row';
+        sigTr.style.display = 'none';
+        sigTr.innerHTML = '<td colspan="8"></td>';
+        document.getElementById('trBody').appendChild(sigTr);
+        row.sigEl = sigTr;
+    }
+    const delta = row.count > 0 ? ((f.t - row.lastT) * 1000).toFixed(1) : '—';
+    row.count++;
+    row.lastT = f.t;
+    row.frame = f;
+    row.dbMsg = dbMsg;
+
+    const name = dbMsg ? dbMsg.name : null;
+    row.el.style.display = traceRowVisible(f.id, name) ? '' : 'none';
+    row.sigEl.style.display = (row.el.style.display === '' && TR.expandedFixed.has(key)) ? '' : 'none';
+
+    row.el.innerHTML =
+        `<td>${(f.t - TR.t0).toFixed(4)}</td><td>${delta}</td><td>${row.count}</td>` +
+        `<td class="${f.dir === 'tx' ? 'tr-dir-tx' : ''}">${f.dir.toUpperCase()}</td>` +
+        `<td class="tr-id">0x${f.id.toString(16).toUpperCase()}${f.ext ? ' (X)' : ''}</td>` +
+        `<td class="tr-name ${name ? '' : 'unknown'}">${name ? escapeHtml(name) : '(unknown)'}</td>` +
+        `<td>${f.dlc}</td><td>${traceHexData(f.data, f.dlc)}</td>`;
+
+    if (TR.expandedFixed.has(key) && dbMsg) traceRenderSigTable(row.sigEl, dbMsg, f.data);
+}
+
+function traceToggleExpandFixed(key) {
+    const row = TR.fixedRows.get(key);
+    if (!row || !row.dbMsg) return;
+    if (TR.expandedFixed.has(key)) { TR.expandedFixed.delete(key); row.sigEl.style.display = 'none'; }
+    else {
+        TR.expandedFixed.add(key);
+        row.sigEl.style.display = '';
+        traceRenderSigTable(row.sigEl, row.dbMsg, row.frame.data);
+    }
+}
+
+function traceRenderSigTable(sigTr, dbMsg, data) {
+    const rows = traceDecodeFrame(dbMsg, data);
+    sigTr.firstChild.innerHTML = `<table class="tr-sig-table">${rows.map(r =>
+        `<tr><td class="sn">${escapeHtml(r.name)}${r.mux ? ' <span style="color:#d8b4fe;">[' + r.mux + ']</span>' : ''}</td>` +
+        `<td class="sv">${r.phys}</td><td class="su">${escapeHtml(r.unit)}</td>` +
+        `<td>raw ${r.raw}</td><td class="svt">${r.vt ? escapeHtml(r.vt) : ''}</td></tr>`).join('')}</table>`;
+}
+
+/* --- Scrolling mode: appended rows, capped, rAF-batched --- */
+function traceFlushScroll() {
+    const frames = TR.pendingScroll;
+    TR.pendingScroll = [];
+    if (frames.length === 0) return;
+    const body = document.getElementById('trBody');
+    const wrap = document.getElementById('trGridWrap');
+    const fragment = document.createDocumentFragment();
+
+    frames.forEach(f => {
+        const dbMsg = traceLookupMsg(f.id, f.ext);
+        const name = dbMsg ? dbMsg.name : null;
+        if (!traceRowVisible(f.id, name)) return;
+        const key = (f.ext ? 'X' : 'S') + f.id;
+        const prev = TR.fixedRows.get(key); // reuse map for per-ID ΔT in scroll mode
+        const delta = prev ? ((f.t - prev.lastT) * 1000).toFixed(1) : '—';
+        TR.fixedRows.set(key, { lastT: f.t, count: (prev ? prev.count : 0) + 1 });
+
+        const tr = document.createElement('tr');
+        tr.className = 'tr-row';
+        tr.innerHTML =
+            `<td>${(f.t - TR.t0).toFixed(4)}</td><td>${delta}</td><td></td>` +
+            `<td class="${f.dir === 'tx' ? 'tr-dir-tx' : ''}">${f.dir.toUpperCase()}</td>` +
+            `<td class="tr-id">0x${f.id.toString(16).toUpperCase()}${f.ext ? ' (X)' : ''}</td>` +
+            `<td class="tr-name ${name ? '' : 'unknown'}">${name ? escapeHtml(name) : '(unknown)'}</td>` +
+            `<td>${f.dlc}</td><td>${traceHexData(f.data, f.dlc)}</td>`;
+        if (dbMsg) {
+            tr.onclick = () => {
+                if (tr.nextSibling && tr.nextSibling.className === 'tr-sig-row') { tr.nextSibling.remove(); return; }
+                const sigTr = document.createElement('tr');
+                sigTr.className = 'tr-sig-row';
+                sigTr.innerHTML = '<td colspan="8"></td>';
+                traceRenderSigTable(sigTr, dbMsg, f.data);
+                tr.after(sigTr);
+            };
+        }
+        fragment.appendChild(tr);
+    });
+    body.appendChild(fragment);
+
+    while (body.children.length > TR.scrollCap) body.removeChild(body.firstChild);
+    if (TR.autoScroll) wrap.scrollTop = wrap.scrollHeight;
+}
+
+/* ============================= FOOTER / CONTROLS ============================= */
+function traceUpdateFooter() {
+    document.getElementById('trTotal').innerText = TR.frameCount;
+    document.getElementById('trUnique').innerText = TR.fixedRows.size;
+}
+setInterval(() => {
+    const el = document.getElementById('trRate');
+    if (!el) return;
+    el.innerText = TR.frameCount - TR.lastRateCount;
+    TR.lastRateCount = TR.frameCount;
+}, 1000);
+
+function trSourceChanged() {
+    TR.source = document.getElementById('trSource').value;
+    document.getElementById('trLiveCtl').style.display = TR.source === 'live' ? 'flex' : 'none';
+    document.getElementById('trSerialCtl').style.display = TR.source === 'serial' ? 'flex' : 'none';
+    document.getElementById('trWifiCtl').style.display = TR.source === 'wifi' ? 'flex' : 'none';
+    document.getElementById('trReplayCtl').style.display = TR.source === 'replay' ? 'flex' : 'none';
+}
+
+function trModeChanged() {
+    TR.mode = document.getElementById('trMode').value;
+    trClear(true);
+}
+
+function trClear(keepStats) {
+    // Note: TR.expandedFixed is deliberately NOT cleared — expanded signal views
+    // persist across Clear and replay restarts, and rows rebuild pre-expanded.
+    document.getElementById('trBody').innerHTML = '';
+    TR.fixedRows.clear();
+    TR.pendingScroll = [];
+    if (!keepStats) {
+        TR.frameCount = 0; TR.lastRateCount = 0; TR.t0 = null;
+        if (typeof plotterOnTraceClear === 'function') plotterOnTraceClear();
+    }
+    traceUpdateFooter();
+}
+
+function trApplyFilter() {
+    if (TR.mode !== 'fixed') return; // scroll rows are filtered at insert time
+    TR.fixedRows.forEach((row, key) => {
+        if (!row.el) return;
+        const name = row.dbMsg ? row.dbMsg.name : null;
+        const vis = traceRowVisible(row.frame ? row.frame.id : 0, name);
+        row.el.style.display = vis ? '' : 'none';
+        row.sigEl.style.display = (vis && TR.expandedFixed.has(key)) ? '' : 'none';
+    });
+}
+
+// Track manual scrolling: pause auto-scroll when the user scrolls up.
+document.addEventListener('scroll', (e) => {
+    const wrap = document.getElementById('trGridWrap');
+    if (e.target !== wrap) return;
+    TR.autoScroll = wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 40;
+}, true);
+
+/* ============================= LIVE SOURCE (WebSocket) ============================= */
+function trSetStatus(text, dotClass) {
+    document.getElementById('trStatus').innerText = text;
+    document.getElementById('trDot').className = 'tr-dot ' + (dotClass || '');
+}
+
+function trToggleConnect() {
+    if (TR.connected) { trDisconnect(); return; }
+    traceRebuildDbMaps();
+    const url = document.getElementById('trWsUrl').value.trim();
+    trSetStatus('Connecting…', '');
+    let ws;
+    try { ws = new WebSocket(url); }
+    catch (e) { trSetStatus('Invalid URL', 'err'); return; }
+    TR.ws = ws;
+
+    ws.onopen = () => {
+        ws.send(JSON.stringify({
+            cmd: 'config',
+            bitrate: parseInt(document.getElementById('trBitrate').value, 10),
+            channel: parseInt(document.getElementById('trChannel').value, 10),
+            silent: document.getElementById('trSilent').checked
+        }));
+    };
+    ws.onmessage = (ev) => {
+        let m;
+        try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.type === 'frame') {
+            traceOnFrame({ t: m.t, id: m.id, ext: !!m.ext, dlc: m.dlc, data: m.data, dir: m.dir || 'rx' });
+        } else if (m.type === 'status') {
+            TR.connected = true;
+            document.getElementById('trConnectBtn').innerText = 'Disconnect';
+            trSetStatus(`Connected — ch${m.channel} @ ${m.bitrate / 1000} k${m.silent ? ' (silent)' : ''}`, 'on');
+            showToast('Kvaser bridge connected.', 'success');
+        } else if (m.type === 'error') {
+            trSetStatus('Bridge error: ' + m.message, 'err');
+            showToast('Bridge error: ' + m.message, 'error');
+        }
+    };
+    ws.onerror = () => { trSetStatus('Connection failed — is kvaser_bridge.py running?', 'err'); };
+    ws.onclose = () => {
+        TR.connected = false;
+        TR.ws = null;
+        document.getElementById('trConnectBtn').innerText = 'Connect';
+        trStopAllCyclic();
+        if (document.getElementById('trDot').className.indexOf('err') === -1) trSetStatus('Disconnected', '');
+    };
+}
+
+function trDisconnect() { if (TR.ws) TR.ws.close(); }
+
+function trSendFrame(id, ext, dlc, data) {
+    if (TR.source === 'live' && TR.ws && TR.connected) {
+        TR.ws.send(JSON.stringify({ cmd: 'tx', id, ext, dlc, data }));
+        return true;
+    }
+    showToast('Transmit requires a live Kvaser connection (the serial source is receive-only).', 'warning');
+    return false;
+}
+
+/* ============================= REPLAY SOURCE ============================= */
+function trParseLogText(text, fileName) {
+    const frames = [];
+    const lname = (fileName || '').toLowerCase();
+    const lines = text.split('\n');
+
+    // --- Kvaser Memorator CSV ---
+    // Preamble declares number formats; column header then data rows:
+    //   Format of data field,HEX        (or DEC)
+    //   Format of id field,HEX          (or DEC)
+    //   Time,Channel,id,Flags,DLC,Data0,...,Data7,Counter
+    //   0.215340,1,200,268435522,8,01,00,00,00,00,00,00,00,1
+    // Flags bits (Kvaser canMSG_*): 0x01 RTR, 0x02 STD, 0x04 EXT,
+    //   0x20 ERROR_FRAME, 0x40 TXACK (frame was transmitted by us).
+    if (lname.endsWith('.csv') || text.startsWith('CSV CAN data')) {
+        let idHex = true, dataHex = true, cols = null;
+        for (const rawLine of lines) {
+            const line = rawLine.replace(/\r$/, '').trim();
+            if (!line) continue;
+
+            let fm = line.match(/^Format of id field\s*,\s*(HEX|DEC)/i);
+            if (fm) { idHex = fm[1].toUpperCase() === 'HEX'; continue; }
+            fm = line.match(/^Format of data field\s*,\s*(HEX|DEC)/i);
+            if (fm) { dataHex = fm[1].toUpperCase() === 'HEX'; continue; }
+            fm = line.match(/^Logging started at\s*,\s*(.+)$/i);
+            if (fm && typeof TR !== 'undefined') { TR.logStartedAt = fm[1].trim(); continue; }
+
+            if (/^Time\s*,\s*Channel\s*,\s*id/i.test(line)) {
+                cols = {};
+                line.split(',').forEach((h, i) => { cols[h.trim().toLowerCase()] = i; });
+                continue;
+            }
+            if (!cols) continue; // still in the preamble
+
+            const parts = line.split(',');
+            if (parts.length < 5) continue;
+            const t = parseFloat(parts[cols['time']]);
+            if (!Number.isFinite(t)) continue;
+
+            const flags = parseInt(parts[cols['flags']], 10) || 0;
+            if (flags & 0x20) continue;          // error frame — not a data frame
+            const ext = (flags & 0x04) !== 0;
+            const rtr = (flags & 0x01) !== 0;
+            const dir = (flags & 0x40) ? 'tx' : 'rx';
+
+            const id = parseInt(parts[cols['id']], idHex ? 16 : 10);
+            if (!Number.isFinite(id)) continue;
+            const dlc = Math.min(parseInt(parts[cols['dlc']], 10) || 0, 8);
+
+            const data = [];
+            if (!rtr) {
+                const d0 = cols['data0'] !== undefined ? cols['data0'] : cols['dlc'] + 1;
+                for (let b = 0; b < dlc; b++) {
+                    const v = parseInt(parts[d0 + b], dataHex ? 16 : 10);
+                    data.push(Number.isFinite(v) ? v & 0xFF : 0);
+                }
+            }
+            frames.push({ t, id, ext, dlc, data, dir });
+        }
+        frames.sort((a, b) => a.t - b.t);
+        return frames;
+    }
+
+    // candump: (1632222222.123456) can0 202#1027AABB  /  18FEF100#... (ext by length)
+    const reCandump = /^\((\d+\.\d+)\)\s+\S+\s+([0-9A-Fa-f]+)#([0-9A-Fa-f]*)/;
+    // Vector .asc: "  0.002000 1  202             Rx   d 8 10 27 00 ..." ; extended IDs end in 'x'
+    const reAsc = /^\s*(\d+\.\d+)\s+\d+\s+([0-9A-Fa-f]+)(x)?\s+(Rx|Tx)\s+d\s+(\d+)((?:\s+[0-9A-Fa-f]{1,2})*)/i;
+    // PCAN .trc (v1.x style): "     1)      1059.9  Rx     0202  8  10 27 00 ..."
+    const reTrc = /^\s*\d+\)\s+([\d.]+)\s+(Rx|Tx)\s+([0-9A-Fa-f]+)\s+(\d+)((?:\s+[0-9A-Fa-f]{1,2})*)/i;
+
+    for (const line of lines) {
+        let m;
+        if ((m = line.match(reCandump))) {
+            const idHexStr = m[2];
+            const dataHexStr = m[3] || '';
+            const data = [];
+            for (let i = 0; i < dataHexStr.length; i += 2) data.push(parseInt(dataHexStr.substr(i, 2), 16));
+            frames.push({ t: parseFloat(m[1]), id: parseInt(idHexStr, 16), ext: idHexStr.length > 3, dlc: data.length, data, dir: 'rx' });
+        } else if ((m = line.match(reAsc))) {
+            const data = (m[6] || '').trim().split(/\s+/).filter(Boolean).map(h => parseInt(h, 16));
+            frames.push({ t: parseFloat(m[1]), id: parseInt(m[2], 16), ext: !!m[3], dlc: parseInt(m[5], 10), data, dir: m[4].toLowerCase() });
+        } else if (lname.endsWith('.trc') && (m = line.match(reTrc))) {
+            const data = (m[5] || '').trim().split(/\s+/).filter(Boolean).map(h => parseInt(h, 16));
+            const id = parseInt(m[3], 16);
+            frames.push({ t: parseFloat(m[1]) / 1000, id, ext: m[3].length > 4 || id > 0x7FF, dlc: parseInt(m[4], 10), data, dir: m[2].toLowerCase() });
+        }
+    }
+    frames.sort((a, b) => a.t - b.t);
+    return frames;
+}
+
+function trToggleReplay() {
+    if (TR.replayState === 'playing') { trPauseReplay(); return; }
+    if (TR.replayState === 'paused') { trResumeReplay(); return; }
+
+    // stopped -> load the file and start from the beginning
+    const fileEl = document.getElementById('trLogFile');
+    const file = fileEl.files[0];
+    if (!file) { showToast('Choose a log file first (.asc / .trc / candump .log).', 'error'); return; }
+    traceRebuildDbMaps();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        TR.logStartedAt = null;
+        TR.logFileName = file.name;
+        TR.replayFrames = trParseLogText(e.target.result, file.name);
+        if (TR.replayFrames.length === 0) { showToast('No frames recognized in this log — unsupported or corrupted format.', 'error'); return; }
+        trClear();
+        if (typeof plotterUpdateMeta === 'function') plotterUpdateMeta();
+        TR.replayIdx = 0;
+        TR.replayState = 'playing';
+        TR.running = true;
+        TR.replayWallStart = performance.now();
+        TR.replayLogStart = TR.replayFrames[0].t;
+        document.getElementById('trPlayBtn').innerText = '⏸ Pause';
+        trSetStatus(`Replaying ${TR.replayFrames.length} frames from ${file.name}`, 'on');
+        trReplayStep();
+    };
+    reader.readAsText(file);
+}
+
+function trPauseReplay() {
+    TR.replayState = 'paused';
+    TR.running = false;
+    clearTimeout(TR.replayTimer);
+    TR.replayPausedAt = performance.now();
+    document.getElementById('trPlayBtn').innerText = '▶ Resume';
+    trSetStatus(`Replay paused — frame ${TR.replayIdx} / ${TR.replayFrames.length}`, '');
+}
+
+function trResumeReplay() {
+    // Shift the wall-clock start by the paused duration so the log-time position
+    // is exactly where it was — playback continues from the pause point.
+    TR.replayWallStart += performance.now() - TR.replayPausedAt;
+    TR.replayState = 'playing';
+    TR.running = true;
+    document.getElementById('trPlayBtn').innerText = '⏸ Pause';
+    trSetStatus(`Replaying — frame ${TR.replayIdx} / ${TR.replayFrames.length}`, 'on');
+    trReplayStep();
+}
+
+function trReplayStep() {
+    if (!TR.running) return;
+    const speed = parseFloat(document.getElementById('trSpeed').value);
+    const batchDeadline = performance.now() + 8; // stay responsive
+
+    if (speed === 0) { // Max: pump in chunks
+        while (TR.replayIdx < TR.replayFrames.length && performance.now() < batchDeadline) {
+            traceOnFrame(TR.replayFrames[TR.replayIdx++]);
+        }
+    } else {
+        const elapsedLog = ((performance.now() - TR.replayWallStart) / 1000) * speed;
+        while (TR.replayIdx < TR.replayFrames.length &&
+               TR.replayFrames[TR.replayIdx].t - TR.replayLogStart <= elapsedLog &&
+               performance.now() < batchDeadline) {
+            traceOnFrame(TR.replayFrames[TR.replayIdx++]);
+        }
+    }
+    if (TR.replayIdx >= TR.replayFrames.length) {
+        TR.replayState = 'stopped';
+        TR.running = false;
+        document.getElementById('trPlayBtn').innerText = '▶ Play';
+        trSetStatus('Replay finished', '');
+        return;
+    }
+    TR.replayTimer = setTimeout(trReplayStep, 10);
+}
+
+// Picking a different log file resets the state machine so the next press of
+// the button starts the new file from the beginning.
+function trReplayFileChanged() {
+    clearTimeout(TR.replayTimer);
+    TR.replayState = 'stopped';
+    TR.running = false;
+    TR.replayIdx = 0;
+    const btn = document.getElementById('trPlayBtn');
+    if (btn) btn.innerText = '▶ Play';
+    trSetStatus('Log file selected — press Play', '');
+}
+
+/* ============================= TRANSMIT PANEL ============================= */
+function trToggleTx() {
+    const body = document.getElementById('trTxBody');
+    body.classList.toggle('open');
+    document.getElementById('trTxCaret').innerText = body.classList.contains('open') ? '▼' : '▲';
+    if (body.classList.contains('open')) trTxPopulateMsgList();
+}
+
+let trTxMsgs = []; // flat [{ fileName, msg }] snapshot across all loaded DBCs
+
+function trTxPopulateMsgList() {
+    const sel = document.getElementById('trTxMsg');
+    if (!sel) return;
+    const prevLabel = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : null;
+    const entries = (typeof allDbEntries === 'function') ? allDbEntries() : [{ name: '', db }];
+    const multi = entries.length > 1;
+    trTxMsgs = [];
+    entries.forEach(e => e.db.messages.forEach(m => { if (!m.isIndependent) trTxMsgs.push({ fileName: e.name, msg: m }); }));
+    sel.innerHTML = trTxMsgs.map((x, i) => {
+        const label = `${multi ? x.fileName + ' :: ' : ''}${x.msg.name} (0x${x.msg.id.toString(16).toUpperCase()})`;
+        return `<option value="${i}">${escapeHtml(label)}</option>`;
+    }).join('');
+    if (prevLabel) {
+        const match = [...sel.options].find(o => o.text === prevLabel);
+        if (match) sel.value = match.value;
+    }
+    trTxMsgChanged();
+}
+
+function trTxCurrentMsg() {
+    const sel = document.getElementById('trTxMsg');
+    const x = trTxMsgs[parseInt(sel.value, 10)];
+    return x ? x.msg : null;
+}
+
+function trTxMsgChanged() {
+    const msg = trTxCurrentMsg();
+    const grid = document.getElementById('trTxSignals');
+    if (!msg) { grid.innerHTML = ''; document.getElementById('trTxPreview').innerText = '—'; return; }
+
+    // Default period from GenMsgCycleTime, default values from GenSigStartValue (raw -> phys).
+    const cyc = effectiveAttr(msg.attrs, 'GenMsgCycleTime');
+    if (cyc !== undefined && cyc > 0) document.getElementById('trTxPeriod').value = cyc;
+
+    grid.innerHTML = msg.signals.map((sig, i) => {
+        const sv = effectiveAttr(sig.attrs, 'GenSigStartValue');
+        const physDefault = (sv !== undefined ? sv : 0) * parseFloat(sig.factor) + parseFloat(sig.offset);
+        const muxTag = sig.muxType === 'M' ? ' [M]' : (sig.muxType === 'm' ? ` [m${sig.muxValue}]` : '');
+        return `<div class="fg"><label>${escapeHtml(sig.name)}${muxTag} ${sig.unit ? '(' + escapeHtml(sig.unit) + ')' : ''}</label>
+                <input type="number" step="any" data-sig="${i}" value="${Number.isInteger(physDefault) ? physDefault : +physDefault.toFixed(4)}" oninput="trTxUpdatePreview()"></div>`;
+    }).join('');
+    trTxUpdatePreview();
+}
+
+function trTxCollect() {
+    const msg = trTxCurrentMsg();
+    if (!msg) return null;
+    const physByName = {};
+    document.querySelectorAll('#trTxSignals input[data-sig]').forEach(inp => {
+        const sig = msg.signals[parseInt(inp.dataset.sig, 10)];
+        const v = parseFloat(inp.value);
+        if (sig && Number.isFinite(v)) physByName[sig.name] = v;
+    });
+    return { msg, data: traceEncodeFrame(msg, physByName) };
+}
+
+function trTxUpdatePreview() {
+    const c = trTxCollect();
+    document.getElementById('trTxPreview').innerText = c ? traceHexData(c.data, c.msg.dlc) : '—';
+}
+
+function trTxOnce() {
+    const c = trTxCollect();
+    if (!c) return;
+    if (trSendFrame(c.msg.id, c.msg.isExt, c.msg.dlc, c.data)) showToast(`Sent ${c.msg.name}.`, 'success');
+}
+
+function trTxCyclicToggle() {
+    const btn = document.getElementById('trTxCyclicBtn');
+    const c = trTxCollect();
+    if (!c) return;
+    const key = c.msg.name;
+    if (TR.txTimers.has(key)) {
+        clearInterval(TR.txTimers.get(key));
+        TR.txTimers.delete(key);
+        btn.innerText = '▶ Start Cyclic';
+        showToast(`Cyclic TX of ${key} stopped.`, 'success');
+        return;
+    }
+    const period = Math.max(1, parseInt(document.getElementById('trTxPeriod').value, 10) || 100);
+    if (!TR.connected) { showToast('Connect to the Kvaser bridge first.', 'warning'); return; }
+    const timer = setInterval(() => {
+        const cc = trTxCollect(); // re-collect so live edits take effect
+        if (cc) trSendFrame(cc.msg.id, cc.msg.isExt, cc.msg.dlc, cc.data);
+    }, period);
+    TR.txTimers.set(key, timer);
+    btn.innerText = '⏹ Stop Cyclic';
+    showToast(`Cyclic TX of ${key} every ${period} ms.`, 'success');
+}
+
+function trStopAllCyclic() {
+    TR.txTimers.forEach(t => clearInterval(t));
+    TR.txTimers.clear();
+    const btn = document.getElementById('trTxCyclicBtn');
+    if (btn) btn.innerText = '▶ Start Cyclic';
+}
+
+</script>
+<script src="candb_plotter.js"></script>
+<script src="candb_serial.js"></script>
+<script src="candb_wifi.js"></script>
+</body>
+</html>
