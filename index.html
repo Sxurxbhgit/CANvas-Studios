@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CANvas Studios Pro</title>
+    <title>Web CANdb++ Studio Pro</title>
     <style>
         :root {
             --bg-base: #0f172a; --bg-panel: #1e293b; --bg-hover: #334155;
+            --bg-header: #141e2e;
             --border-color: #334155; --accent: #3b82f6; --text-main: #f8fafc;
             --text-muted: #94a3b8; --icon-net: #ef4444; --icon-node: #a855f7;
             --icon-msg: #f59e0b; --icon-sig: #10b981; --icon-indep: #06b6d4;
@@ -14,10 +15,34 @@
             --font-mono: 'Consolas', 'Courier New', monospace;
             --success: #059669; --error: #dc2626; --warn: #d97706;
             --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --overlay-rgb: 255,255,255;
+            /* Canvas plotter colors — read at draw-time since <canvas> can't use CSS vars directly. */
+            --plot-grid: rgba(255,255,255,0.07); --plot-axis: rgba(255,255,255,0.25); --plot-tick-text: #64748b;
+            /* Accent text tones used on the panel/base surface (badges, trace columns, decoded
+               signal values). These are bright pastels tuned for the dark surface — the light
+               theme below swaps in deeper, more saturated tones so they stay readable on white. */
+            --accent-red: #fca5a5; --accent-amber: #fcd34d; --accent-amber-bright: #fbbf24;
+            --accent-blue: #93c5fd; --accent-purple: #d8b4fe; --accent-pink: #f472b6;
+            --accent-mint: #6ee7b7; --accent-lilac: #c4b5fd; --sig-value-text: #ffffff;
+        }
+
+        :root[data-theme="light"] {
+            --bg-base: #f1f5f9; --bg-panel: #ffffff; --bg-hover: #e2e8f0;
+            --bg-header: #eef2f7;
+            --border-color: #cbd5e1; --accent: #2563eb; --text-main: #0f172a;
+            --text-muted: #64748b; --icon-net: #dc2626; --icon-node: #9333ea;
+            --icon-msg: #d97706; --icon-sig: #059669; --icon-indep: #0891b2;
+            --success: #059669; --error: #dc2626; --warn: #b45309;
+            --shadow-sm: 0 2px 8px rgba(15,23,42,0.12);
+            --overlay-rgb: 15,23,42;
+            --plot-grid: rgba(15,23,42,0.09); --plot-axis: rgba(15,23,42,0.35); --plot-tick-text: #475569;
+            --accent-red: #b91c1c; --accent-amber: #92400e; --accent-amber-bright: #b45309;
+            --accent-blue: #1d4ed8; --accent-purple: #7e22ce; --accent-pink: #be185d;
+            --accent-mint: #047857; --accent-lilac: #6d28d9; --sig-value-text: #0f172a;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: var(--font-main); background-color: var(--bg-base); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { font-family: var(--font-main); background-color: var(--bg-base); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background-color 0.15s, color 0.15s; }
 
         /* --- Toolbar --- */
         .toolbar { height: 50px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; gap: 15px; flex-shrink: 0; }
@@ -35,8 +60,8 @@
         .file-badge { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
         .problems-toggle { margin-left: auto; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; }
         .problems-toggle:hover { background: var(--bg-hover); }
-        .problems-toggle .count-err { color: #fca5a5; font-weight: 700; }
-        .problems-toggle .count-warn { color: #fcd34d; font-weight: 700; }
+        .problems-toggle .count-err { color: var(--accent-red); font-weight: 700; }
+        .problems-toggle .count-warn { color: var(--accent-amber); font-weight: 700; }
 
         /* --- Workspace Layout --- */
         .workspace { display: flex; flex: 1; min-height: 0; }
@@ -44,8 +69,8 @@
 
         /* --- Left Pane: Tree View --- */
         .sidebar { width: 320px; background-color: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; }
-        .sidebar-header { padding: 10px 15px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border-color); background: #141e2e; display: flex; justify-content: space-between; align-items: center; }
-        .sidebar-dbsel { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border-color); background: #121c2c; }
+        .sidebar-header { padding: 10px 15px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border-color); background: var(--bg-header); display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-dbsel { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-base); }
         .sidebar-dbsel select { flex: 1; min-width: 0; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 6px; border-radius: 4px; font-size: 0.75rem; font-family: var(--font-mono); outline: none; }
         .sidebar-dbsel select:focus { border-color: var(--accent); }
         .sidebar-search { padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
@@ -59,8 +84,8 @@
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
         .tree-item { padding: 4px 10px 4px 15px; cursor: pointer; display: flex; align-items: center; font-size: 0.85rem; user-select: none; white-space: nowrap; border-left: 2px solid transparent; gap: 4px; }
-        .tree-item:hover { background-color: rgba(255,255,255,0.05); }
-        .tree-item.active { background-color: var(--bg-hover); border-left-color: var(--accent); color: white; }
+        .tree-item:hover { background-color: rgba(var(--overlay-rgb),0.05); }
+        .tree-item.active { background-color: var(--bg-hover); border-left-color: var(--accent); color: var(--text-main); }
         .tree-item.dimmed { display: none; }
 
         .tree-item-icon { margin-right: 2px; font-size: 1rem; width: 16px; text-align: center; flex-shrink: 0; }
@@ -78,7 +103,7 @@
         .tree-item-icon .icon-signal { margin: 0 auto; }
         .tree-label { overflow: hidden; text-overflow: ellipsis; }
         .tree-badge { margin-left: auto; font-size: 0.6rem; background: var(--bg-hover); color: var(--text-muted); padding: 1px 5px; border-radius: 8px; flex-shrink: 0; }
-        .tree-badge.mux { background: rgba(168, 85, 247, 0.25); color: #d8b4fe; }
+        .tree-badge.mux { background: rgba(168, 85, 247, 0.25); color: var(--accent-purple); }
         .tree-item.err-item { border-left-color: var(--error); }
         .tree-item.warn-item .tree-label { text-decoration: underline dotted var(--warn); }
 
@@ -87,14 +112,14 @@
 
         .tree-toggle { margin-right: 4px; margin-left: -12px; font-size: 0.65rem; color: var(--text-muted); width: 14px; text-align: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
         .tree-toggle:hover { color: var(--text-main); }
-        .tree-item.active .tree-toggle { color: white; }
+        .tree-item.active .tree-toggle { color: var(--text-main); }
 
         /* --- Right Pane: Editor --- */
         .editor-pane { flex: 1; background-color: var(--bg-base); display: flex; flex-direction: column; position: relative; min-height: 0; }
 
         .editor-tabs { display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
         .tab-btn { padding: 10px 20px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: 600; border-bottom: 2px solid transparent; }
-        .tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
+        .tab-btn:hover { color: var(--text-main); background: rgba(var(--overlay-rgb),0.02); }
         .tab-btn.active { border-bottom-color: var(--accent); color: var(--text-main); }
 
         .editor-content { flex: 1; padding: 25px; overflow-y: auto; display: none; }
@@ -112,31 +137,31 @@
         .form-group input, .form-group select, .form-group textarea { background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 10px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85rem; outline: none; transition: 0.2s; }
         .form-group textarea { font-family: var(--font-main); resize: vertical; min-height: 50px; }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
-        .form-group .field-error { font-size: 0.7rem; color: #fca5a5; }
+        .form-group .field-error { font-size: 0.7rem; color: var(--accent-red); }
         .form-group input.field-invalid { border-color: var(--error); }
 
         .receiver-list { display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; }
         .receiver-chip { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; padding: 3px 8px; border-radius: 12px; background: var(--bg-hover); cursor: pointer; user-select: none; border: 1px solid transparent; }
-        .receiver-chip.checked { background: rgba(59,130,246,0.25); border-color: var(--accent); color: #93c5fd; }
+        .receiver-chip.checked { background: rgba(59,130,246,0.25); border-color: var(--accent); color: var(--accent-blue); }
         .receiver-chip input { display: none; }
 
         .btn-sm { background: var(--bg-hover); color: var(--text-main); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: 0.2s; }
         .btn-sm:hover { background: var(--text-muted); color: #fff; }
-        .btn-sm.primary { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); color: #93c5fd; }
+        .btn-sm.primary { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); color: var(--accent-blue); }
         .btn-sm.primary:hover { background: var(--accent); color: #fff; }
-        .btn-sm.danger { background: rgba(220, 38, 38, 0.1); border-color: var(--error); color: #fca5a5; }
+        .btn-sm.danger { background: rgba(220, 38, 38, 0.1); border-color: var(--error); color: var(--accent-red); }
         .btn-sm.danger:hover { background: var(--error); color: #fff; }
 
         .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
         .data-table th, .data-table td { border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; }
         .data-table th { background: var(--bg-base); color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
         .data-table input { width: 100%; background: transparent; border: none; color: var(--text-main); font-family: var(--font-mono); outline: none; }
-        .data-table tr:hover { background: rgba(255,255,255,0.02); }
+        .data-table tr:hover { background: rgba(var(--overlay-rgb),0.02); }
 
         .layout-matrix { display: grid; grid-template-columns: 45px repeat(8, 1fr); gap: 1px; background: var(--border-color); border: 1px solid var(--border-color); width: 100%; max-width: 800px; margin-top: 15px; font-family: var(--font-mono); font-size: 0.7rem; border-radius: 4px; overflow: hidden; box-shadow: var(--shadow-sm); }
         .matrix-cell { background: var(--bg-base); position: relative; min-height: 45px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .matrix-header { background: #141e2e; color: var(--text-muted); font-weight: bold; min-height: 30px; }
-        .matrix-byte { background: #141e2e; color: var(--text-muted); font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); }
+        .matrix-header { background: var(--bg-header); color: var(--text-muted); font-weight: bold; min-height: 30px; }
+        .matrix-byte { background: var(--bg-header); color: var(--text-muted); font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); }
 
         .bit-num { position: absolute; top: 2px; left: 2px; font-size: 0.55rem; color: #475569; z-index: 10; pointer-events: none; }
         .matrix-cell.has-signal .bit-num { color: #fff; background: rgba(0,0,0,0.5); padding: 1px 3px; border-radius: 2px; }
@@ -155,10 +180,10 @@
         /* --- Problems Panel --- */
         .problems-panel { height: 220px; background: var(--bg-panel); border-top: 1px solid var(--border-color); display: none; flex-direction: column; flex-shrink: 0; }
         .problems-panel.open { display: flex; }
-        .problems-panel-header { padding: 8px 15px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #141e2e; }
+        .problems-panel-header { padding: 8px 15px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-header); }
         .problems-list { flex: 1; overflow-y: auto; }
-        .problem-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 15px; font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; }
-        .problem-row:hover { background: rgba(255,255,255,0.04); }
+        .problem-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 15px; font-size: 0.8rem; border-bottom: 1px solid rgba(var(--overlay-rgb),0.03); cursor: pointer; }
+        .problem-row:hover { background: rgba(var(--overlay-rgb),0.04); }
         .problem-icon { flex-shrink: 0; font-weight: 800; width: 16px; text-align: center; }
         .problem-row.error .problem-icon { color: var(--error); }
         .problem-row.warning .problem-icon { color: var(--warn); }
@@ -180,21 +205,21 @@
         .modal-btn { padding: 7px 16px; border-radius: 4px; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-hover); color: var(--text-main); }
         .modal-btn.primary { background: var(--accent); border-color: var(--accent); }
         .modal-btn.danger { background: var(--error); border-color: var(--error); }
-        .modal-error-text { color: #fca5a5; font-size: 0.78rem; margin-top: 6px; min-height: 14px; }
+        .modal-error-text { color: var(--accent-red); font-size: 0.78rem; margin-top: 6px; min-height: 14px; }
 
         /* --- MATLAB Export --- */
         .ml-label { display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
         .ml-actions { display: flex; gap: 8px; margin-top: 10px; }
         .ml-actions .btn-sm { flex: 1; padding: 7px 10px; }
         .ml-list { border: 1px solid var(--border-color); border-radius: 6px; height: 280px; overflow-y: auto; margin-top: 10px; background: var(--bg-base); }
-        .ml-item { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.15s; }
+        .ml-item { display: flex; align-items: center; padding: 7px 12px; border-bottom: 1px solid rgba(var(--overlay-rgb),0.04); transition: background-color 0.15s; }
         .ml-item:last-child { border-bottom: none; }
-        .ml-item:hover { background: rgba(255,255,255,0.04); }
+        .ml-item:hover { background: rgba(var(--overlay-rgb),0.04); }
         .ml-item label { cursor: pointer; width: 100%; margin-left: 10px; font-size: 0.85rem; font-family: var(--font-mono); user-select: none; color: var(--text-main); }
         .ml-item input[type="checkbox"] { cursor: pointer; width: 15px; height: 15px; accent-color: var(--accent); margin: 0; flex-shrink: 0; }
         .ml-empty { padding: 20px; color: var(--text-muted); text-align: center; font-style: italic; font-size: 0.82rem; }
         .ml-status { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 8px; display: block; }
-        .ml-status b { color: #93c5fd; }
+        .ml-status b { color: var(--accent-blue); }
 
         /* --- Toasts --- */
         .toast-stack { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 2000; }
@@ -208,7 +233,7 @@
 <body>
 
     <header class="toolbar">
-        <h1>CANvas Studios Pro</h1>
+        <h1>CANdb++ Web</h1>
         <div class="view-switch">
             <button class="view-btn active" id="viewBtnDb" onclick="switchView('db')">🗄 Database</button>
             <button class="view-btn" id="viewBtnTrace" onclick="switchView('trace')">📡 Trace</button>
@@ -227,6 +252,7 @@
             <span class="count-err" id="errCount">0</span>
             <span class="count-warn" id="warnCount">0</span>
         </div>
+        <button class="toolbar-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch between dark and light mode">🌙 Dark</button>
     </header>
 
     <div class="workspace" id="dbWorkspace">
@@ -317,6 +343,20 @@
     <div class="toast-stack" id="toastStack"></div>
 
 <script>
+    /* ============================= THEME (dark / light) ============================= */
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        const btn = document.getElementById('themeToggleBtn');
+        if (btn) btn.innerHTML = theme === 'light' ? '☀️ Light' : '🌙 Dark';
+        if (typeof plotterDraw === 'function' && typeof PLT !== 'undefined' && PLT.open) { PLT.dirty = true; }
+    }
+    function toggleTheme() {
+        const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        localStorage.setItem('candb-theme', next);
+        applyTheme(next);
+    }
+    applyTheme(localStorage.getItem('candb-theme') || 'dark');
+
     /* =========================================================================
        APPLICATION STATE
        db.nodes: string[]
@@ -1101,6 +1141,19 @@
 
     function toggleProblemsPanel() { document.getElementById('problemsPanel').classList.toggle('open'); }
 
+    // Re-runs validation and refreshes the Problems panel + tree error/warning
+    // highlighting in place, without rebuilding the whole tree (which would lose
+    // collapse state and the search filter). Call this after any edit made from
+    // the Message/Signal/Node property forms so error status never goes stale.
+    function refreshValidationStatus() {
+        const refs = runValidationRefsOnly(); // runs validation, which also updates the Problems panel + counts
+        document.querySelectorAll('.tree-item.err-item, .tree-item.warn-item').forEach(el => el.classList.remove('err-item', 'warn-item'));
+        refs.msgErr.forEach(idx => { const el = document.getElementById(`tree_m_${idx}`); if (el) el.classList.add('err-item'); });
+        refs.msgWarn.forEach(idx => { if (refs.msgErr.has(idx)) return; const el = document.getElementById(`tree_m_${idx}`); if (el) el.classList.add('warn-item'); });
+        refs.sigErr.forEach(key => { const el = document.getElementById(`tree_m_${key.replace(':', '_s_')}`); if (el) el.classList.add('err-item'); });
+        refs.sigWarn.forEach(key => { if (refs.sigErr.has(key)) return; const el = document.getElementById(`tree_m_${key.replace(':', '_s_')}`); if (el) el.classList.add('warn-item'); });
+    }
+
     function escapeHtml(s) { const d = document.createElement('div'); d.innerText = s; return d.innerHTML; }
 
     /* ============================= TREE ============================= */
@@ -1418,10 +1471,12 @@
         db.messages.forEach(m => m.signals.forEach(s => { s.receivers = s.receivers.map(r => r === activeNodeName ? raw : r); }));
         activeNodeName = raw;
         renderTree();
+        refreshValidationStatus();
     }
 
     function updateNodeComment() {
         db.nodeComments[activeNodeName] = document.getElementById('n_comment').value;
+        refreshValidationStatus();
     }
 
     /* ============================= MESSAGE EDITOR ============================= */
@@ -1494,7 +1549,7 @@
 
     function updateMessage(field) {
         const msg = db.messages[activeMsgIndex];
-        if (field === 'comment') { msg.comment = document.getElementById('m_comment').value; return; }
+        if (field === 'comment') { msg.comment = document.getElementById('m_comment').value; refreshValidationStatus(); return; }
         const val = document.getElementById(`m_${field}`).value;
         if (field === 'name') msg.name = val.replace(/\s+/g, '_');
         if (field === 'id') msg.id = parseInt(val, 10) || 0;
@@ -1506,6 +1561,7 @@
         renderTree();
         const el = document.getElementById(`tree_m_${activeMsgIndex}`);
         if (el) el.classList.add('active');
+        refreshValidationStatus();
     }
 
     /* ============================= SIGNAL EDITOR ============================= */
@@ -1538,7 +1594,7 @@
                         <label>Start Bit</label><input type="number" id="s_start" value="${sig.start}" oninput="updateSignal('start')">
                     </div>
                     <div class="form-group">
-                        <label>Length (Bits)</label><input type="number" id="s_length" value="${sig.len}" oninput="updateSignal('len')">
+                        <label>Length (Bits)</label><input type="number" id="s_len" value="${sig.len}" oninput="updateSignal('len')">
                     </div>
                     <div class="form-group">
                         <label>Byte Order</label>
@@ -1598,19 +1654,21 @@
         const idx = sig.receivers.indexOf(nodeName);
         if (idx > -1) { sig.receivers.splice(idx, 1); el.classList.remove('checked'); el.querySelector('input').checked = false; }
         else { sig.receivers.push(nodeName); el.classList.add('checked'); el.querySelector('input').checked = true; }
+        refreshValidationStatus();
     }
 
     function updateSignal(field) {
         const sig = db.messages[activeMsgIndex].signals[activeSigIndex];
-        if (field === 'comment') { sig.comment = document.getElementById('s_comment').value; return; }
+        if (field === 'comment') { sig.comment = document.getElementById('s_comment').value; refreshValidationStatus(); return; }
         if (field === 'mux') {
             const val = document.getElementById('s_mux').value;
             sig.muxType = val;
             sig.muxValue = val === 'm' ? 0 : null;
             openSignalEditor(activeMsgIndex, activeSigIndex);
+            refreshValidationStatus();
             return;
         }
-        if (field === 'muxval') { sig.muxValue = parseInt(document.getElementById('s_muxval').value, 10) || 0; return; }
+        if (field === 'muxval') { sig.muxValue = parseInt(document.getElementById('s_muxval').value, 10) || 0; refreshValidationStatus(); return; }
         const val = document.getElementById(`s_${field}`).value;
         sig[field] = val;
         if (field === 'start' || field === 'len') sig[field] = parseInt(val, 10) || 0;
@@ -1620,6 +1678,7 @@
             const el = document.getElementById(`tree_m_${activeMsgIndex}_s_${activeSigIndex}`);
             if (el) el.classList.add('active');
         }
+        refreshValidationStatus();
     }
 
     /* ============================= OBJECT ATTRIBUTES TAB ============================= */
@@ -1661,7 +1720,7 @@
                 <td style="color:var(--text-muted); font-size:0.75rem;">${escapeHtml(constraint)}</td>
                 <td>${input}</td>
                 <td>${isSet
-                    ? `<span style="color:#93c5fd; font-size:0.72rem; font-weight:700;">SET</span> <button class="btn-sm" style="margin-left:6px;" onclick="resetObjAttr('${escapeHtml(def.name)}')">↩ Default</button>`
+                    ? `<span style="color:var(--accent-blue); font-size:0.72rem; font-weight:700;">SET</span> <button class="btn-sm" style="margin-left:6px;" onclick="resetObjAttr('${escapeHtml(def.name)}')">↩ Default</button>`
                     : `<span style="color:var(--text-muted); font-size:0.72rem;">default</span>`}</td>
             </tr>`;
         });
@@ -2454,6 +2513,7 @@ const TR = {
     replayFrames: [],
     replayTimer: null,
     replayIdx: 0,
+    seeking: false,       // true while the user is dragging the seek bar
     txTimers: new Map(),      // msgName -> interval id
     autoScroll: true,
     logStartedAt: null,   // 'Logging started at' from Kvaser CSV preamble
@@ -2476,34 +2536,44 @@ function traceInit() {
         .tr-dot.err { background:var(--error); }
         .tr-grid-wrap { flex:1; overflow-y:auto; background:var(--bg-base); min-height:0; }
         .tr-table { width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.78rem; }
-        .tr-table th { position:sticky; top:0; background:#141e2e; color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; padding:6px 10px; text-align:left; border-bottom:1px solid var(--border-color); z-index:5; }
-        .tr-table td { padding:4px 10px; border-bottom:1px solid rgba(255,255,255,0.04); white-space:nowrap; }
+        .tr-table th { position:sticky; top:0; background:var(--bg-header); color:var(--text-muted); text-transform:uppercase; font-size:0.68rem; padding:6px 10px; text-align:left; border-bottom:1px solid var(--border-color); z-index:5; }
+        .tr-table td { padding:4px 10px; border-bottom:1px solid rgba(var(--overlay-rgb),0.04); white-space:nowrap; }
         .tr-table tr.tr-row { cursor:pointer; }
-        .tr-table tr.tr-row:hover { background:rgba(255,255,255,0.04); }
+        .tr-table tr.tr-row:hover { background:rgba(var(--overlay-rgb),0.04); }
         .tr-table tr.tr-row.flash { animation:trFlash 0.3s; }
         @keyframes trFlash { from { background:rgba(59,130,246,0.25); } to { background:transparent; } }
-        .tr-id { color:#fbbf24; font-weight:700; }
-        .tr-name { color:#93c5fd; }
+        .tr-id { color:var(--accent-amber-bright); font-weight:700; }
+        .tr-name { color:var(--accent-blue); }
         .tr-name.unknown { color:var(--text-muted); font-style:italic; }
-        .tr-dir-tx { color:#f472b6; font-weight:700; }
+        .tr-caret { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; margin-right:4px; border-radius:3px; color:var(--text-muted); background:var(--bg-hover); font-size:0.6rem; cursor:pointer; user-select:none; }
+        .tr-caret:hover { color:var(--text-main); background:var(--accent); }
+        .tr-dir-tx { color:var(--accent-pink); font-weight:700; }
         .tr-sig-row td { background:rgba(59,130,246,0.05); padding:0; border-bottom:1px solid var(--border-color); }
         .tr-sig-table { width:100%; border-collapse:collapse; font-size:0.74rem; }
         .tr-sig-table td { padding:3px 10px 3px 34px; border:none; color:var(--text-main); }
-        .tr-sig-table .sn { color:#6ee7b7; }
-        .tr-sig-table .sv { color:#fff; font-weight:700; }
+        .tr-sig-table .sn { color:var(--accent-mint); }
+        .tr-sig-table .sv { color:var(--sig-value-text); font-weight:700; }
         .tr-sig-table .su { color:var(--text-muted); }
-        .tr-sig-table .svt { color:#c4b5fd; }
+        .tr-sig-table .svt { color:var(--accent-lilac); }
         .tr-footer { display:flex; align-items:center; gap:16px; padding:5px 14px; background:var(--bg-panel); border-top:1px solid var(--border-color); font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono); flex-shrink:0; }
         .tr-tx { background:var(--bg-panel); border-top:1px solid var(--border-color); flex-shrink:0; max-height:270px; overflow-y:auto; }
-        .tr-tx-header { padding:7px 14px; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); cursor:pointer; display:flex; justify-content:space-between; background:#141e2e; }
+        .tr-tx-header { padding:7px 14px; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); cursor:pointer; display:flex; justify-content:space-between; background:var(--bg-header); }
         .tr-tx-body { padding:10px 14px; display:none; }
         .tr-tx-body.open { display:block; }
         .tr-tx-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px 14px; margin-top:10px; }
         .tr-tx-grid .fg label { display:block; font-size:0.68rem; color:var(--text-muted); font-weight:700; margin-bottom:2px; font-family:var(--font-main); }
         .tr-tx-grid .fg input { width:100%; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:4px 8px; border-radius:4px; font-family:var(--font-mono); font-size:0.78rem; outline:none; }
-        .tr-data-preview { font-family:var(--font-mono); color:#fbbf24; font-size:0.85rem; letter-spacing:1px; }
+        .tr-data-preview { font-family:var(--font-mono); color:var(--accent-amber-bright); font-size:0.85rem; letter-spacing:1px; }
         .tr-chk { display:flex; align-items:center; gap:5px; font-size:0.75rem; color:var(--text-main); cursor:pointer; user-select:none; }
         .tr-chk input { accent-color:var(--accent); }
+        .tr-seekbar { display:flex; align-items:center; gap:8px; padding:6px 14px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); flex-shrink:0; }
+        .tr-seekbar input[type="range"] { flex:1; accent-color:var(--accent); }
+        .tr-seekbar button { background:var(--bg-hover); border:1px solid var(--border-color); color:var(--text-main); border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.75rem; }
+        .tr-seekbar button:hover { border-color:var(--accent); }
+        .tr-seek-label { font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted); min-width:118px; text-align:right; flex-shrink:0; }
+        .tr-parsing { display:flex; align-items:center; gap:8px; padding:6px 14px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); font-size:0.78rem; color:var(--text-muted); flex-shrink:0; }
+        .tr-parsing .tr-progress-track { flex:1; height:6px; background:var(--bg-base); border-radius:3px; overflow:hidden; }
+        .tr-parsing .tr-progress-fill { height:100%; background:var(--accent); width:0%; transition:width 0.1s linear; }
     `;
     document.head.appendChild(style);
 
@@ -2552,6 +2622,20 @@ function traceInit() {
                 <button class="toolbar-btn" onclick="plotterToggle()">📈 Plotter</button>
                 <button class="toolbar-btn" onclick="trClear()">🧹 Clear</button>
             </span>
+        </div>
+
+        <div class="tr-parsing" id="trParsing" style="display:none;">
+            <span id="trParsingLabel">Parsing log file…</span>
+            <div class="tr-progress-track"><div class="tr-progress-fill" id="trParsingFill"></div></div>
+        </div>
+
+        <div class="tr-seekbar" id="trSeekBarWrap" style="display:none;">
+            <button onclick="trSeekStep(-5)" title="Back 5s">⏪ 5s</button>
+            <button onclick="trSeekStep(-1)" title="Back 1s">◀ 1s</button>
+            <input type="range" id="trSeekBar" min="0" max="1000" value="0" step="1" oninput="trSeekInput()" onchange="trSeekCommit()">
+            <button onclick="trSeekStep(1)" title="Forward 1s">1s ▶</button>
+            <button onclick="trSeekStep(5)" title="Forward 5s">5s ⏩</button>
+            <span class="tr-seek-label" id="trSeekLabel">0.0s / 0.0s</span>
         </div>
 
         <div class="tr-grid-wrap" id="trGridWrap">
@@ -2755,11 +2839,12 @@ function traceFixedUpdate(f) {
     row.el.style.display = traceRowVisible(f.id, name) ? '' : 'none';
     row.sigEl.style.display = (row.el.style.display === '' && TR.expandedFixed.has(key)) ? '' : 'none';
 
+    const caretHtml = dbMsg ? `<span class="tr-caret" onclick="event.stopPropagation(); traceToggleExpandFixed('${key}')" title="Show decoded signals">${TR.expandedFixed.has(key) ? '▾' : '▸'}</span>` : '';
     row.el.innerHTML =
         `<td>${(f.t - TR.t0).toFixed(4)}</td><td>${delta}</td><td>${row.count}</td>` +
         `<td class="${f.dir === 'tx' ? 'tr-dir-tx' : ''}">${f.dir.toUpperCase()}</td>` +
         `<td class="tr-id">0x${f.id.toString(16).toUpperCase()}${f.ext ? ' (X)' : ''}</td>` +
-        `<td class="tr-name ${name ? '' : 'unknown'}">${name ? escapeHtml(name) : '(unknown)'}</td>` +
+        `<td class="tr-name ${name ? '' : 'unknown'}">${caretHtml}${name ? escapeHtml(name) : '(unknown)'}</td>` +
         `<td>${f.dlc}</td><td>${traceHexData(f.data, f.dlc)}</td>`;
 
     if (TR.expandedFixed.has(key) && dbMsg) traceRenderSigTable(row.sigEl, dbMsg, f.data);
@@ -2768,18 +2853,25 @@ function traceFixedUpdate(f) {
 function traceToggleExpandFixed(key) {
     const row = TR.fixedRows.get(key);
     if (!row || !row.dbMsg) return;
-    if (TR.expandedFixed.has(key)) { TR.expandedFixed.delete(key); row.sigEl.style.display = 'none'; }
-    else {
+    // Flip the caret glyph immediately — traceFixedUpdate() only redraws it on the
+    // next incoming frame, which could be seconds away (or never, once replay ends).
+    const caretEl = row.el ? row.el.querySelector('.tr-caret') : null;
+    if (TR.expandedFixed.has(key)) {
+        TR.expandedFixed.delete(key);
+        row.sigEl.style.display = 'none';
+        if (caretEl) caretEl.textContent = '▸';
+    } else {
         TR.expandedFixed.add(key);
         row.sigEl.style.display = '';
         traceRenderSigTable(row.sigEl, row.dbMsg, row.frame.data);
+        if (caretEl) caretEl.textContent = '▾';
     }
 }
 
 function traceRenderSigTable(sigTr, dbMsg, data) {
     const rows = traceDecodeFrame(dbMsg, data);
     sigTr.firstChild.innerHTML = `<table class="tr-sig-table">${rows.map(r =>
-        `<tr><td class="sn">${escapeHtml(r.name)}${r.mux ? ' <span style="color:#d8b4fe;">[' + r.mux + ']</span>' : ''}</td>` +
+        `<tr><td class="sn">${escapeHtml(r.name)}${r.mux ? ' <span style="color:var(--accent-purple);">[' + r.mux + ']</span>' : ''}</td>` +
         `<td class="sv">${r.phys}</td><td class="su">${escapeHtml(r.unit)}</td>` +
         `<td>raw ${r.raw}</td><td class="svt">${r.vt ? escapeHtml(r.vt) : ''}</td></tr>`).join('')}</table>`;
 }
@@ -2804,20 +2896,27 @@ function traceFlushScroll() {
 
         const tr = document.createElement('tr');
         tr.className = 'tr-row';
+        const caretHtml = dbMsg ? `<span class="tr-caret" title="Show decoded signals">▸</span>` : '';
         tr.innerHTML =
             `<td>${(f.t - TR.t0).toFixed(4)}</td><td>${delta}</td><td></td>` +
             `<td class="${f.dir === 'tx' ? 'tr-dir-tx' : ''}">${f.dir.toUpperCase()}</td>` +
             `<td class="tr-id">0x${f.id.toString(16).toUpperCase()}${f.ext ? ' (X)' : ''}</td>` +
-            `<td class="tr-name ${name ? '' : 'unknown'}">${name ? escapeHtml(name) : '(unknown)'}</td>` +
+            `<td class="tr-name ${name ? '' : 'unknown'}">${caretHtml}${name ? escapeHtml(name) : '(unknown)'}</td>` +
             `<td>${f.dlc}</td><td>${traceHexData(f.data, f.dlc)}</td>`;
         if (dbMsg) {
             tr.onclick = () => {
-                if (tr.nextSibling && tr.nextSibling.className === 'tr-sig-row') { tr.nextSibling.remove(); return; }
+                const caretEl = tr.querySelector('.tr-caret');
+                if (tr.nextSibling && tr.nextSibling.className === 'tr-sig-row') {
+                    tr.nextSibling.remove();
+                    if (caretEl) caretEl.textContent = '▸';
+                    return;
+                }
                 const sigTr = document.createElement('tr');
                 sigTr.className = 'tr-sig-row';
                 sigTr.innerHTML = '<td colspan="8"></td>';
                 traceRenderSigTable(sigTr, dbMsg, f.data);
                 tr.after(sigTr);
+                if (caretEl) caretEl.textContent = '▾';
             };
         }
         fragment.appendChild(tr);
@@ -2846,6 +2945,7 @@ function trSourceChanged() {
     document.getElementById('trSerialCtl').style.display = TR.source === 'serial' ? 'flex' : 'none';
     document.getElementById('trWifiCtl').style.display = TR.source === 'wifi' ? 'flex' : 'none';
     document.getElementById('trReplayCtl').style.display = TR.source === 'replay' ? 'flex' : 'none';
+    document.getElementById('trSeekBarWrap').style.display = (TR.source === 'replay' && TR.replayFrames.length > 0) ? 'flex' : 'none';
 }
 
 function trModeChanged() {
@@ -2944,13 +3044,18 @@ function trSendFrame(id, ext, dlc, data) {
     return false;
 }
 
-/* ============================= REPLAY SOURCE ============================= */
-function trParseLogText(text, fileName) {
+/* ============================= REPLAY SOURCE =============================
+   Parsing runs in yielded chunks (setTimeout between batches of lines) instead
+   of one long synchronous pass, so a big log file (hundreds of thousands of
+   lines) reports progress and never freezes the tab while it parses. */
+function trParseLogTextAsync(text, fileName, onDone, onProgress) {
     const frames = [];
     const lname = (fileName || '').toLowerCase();
+    const isCsv = lname.endsWith('.csv') || text.startsWith('CSV CAN data');
     const lines = text.split('\n');
+    const total = lines.length || 1;
 
-    // --- Kvaser Memorator CSV ---
+    // --- Kvaser Memorator CSV state ---
     // Preamble declares number formats; column header then data rows:
     //   Format of data field,HEX        (or DEC)
     //   Format of id field,HEX          (or DEC)
@@ -2958,53 +3063,50 @@ function trParseLogText(text, fileName) {
     //   0.215340,1,200,268435522,8,01,00,00,00,00,00,00,00,1
     // Flags bits (Kvaser canMSG_*): 0x01 RTR, 0x02 STD, 0x04 EXT,
     //   0x20 ERROR_FRAME, 0x40 TXACK (frame was transmitted by us).
-    if (lname.endsWith('.csv') || text.startsWith('CSV CAN data')) {
-        let idHex = true, dataHex = true, cols = null;
-        for (const rawLine of lines) {
-            const line = rawLine.replace(/\r$/, '').trim();
-            if (!line) continue;
+    let idHex = true, dataHex = true, cols = null;
 
-            let fm = line.match(/^Format of id field\s*,\s*(HEX|DEC)/i);
-            if (fm) { idHex = fm[1].toUpperCase() === 'HEX'; continue; }
-            fm = line.match(/^Format of data field\s*,\s*(HEX|DEC)/i);
-            if (fm) { dataHex = fm[1].toUpperCase() === 'HEX'; continue; }
-            fm = line.match(/^Logging started at\s*,\s*(.+)$/i);
-            if (fm && typeof TR !== 'undefined') { TR.logStartedAt = fm[1].trim(); continue; }
+    function processCsvLine(rawLine) {
+        const line = rawLine.replace(/\r$/, '').trim();
+        if (!line) return;
 
-            if (/^Time\s*,\s*Channel\s*,\s*id/i.test(line)) {
-                cols = {};
-                line.split(',').forEach((h, i) => { cols[h.trim().toLowerCase()] = i; });
-                continue;
-            }
-            if (!cols) continue; // still in the preamble
+        let fm = line.match(/^Format of id field\s*,\s*(HEX|DEC)/i);
+        if (fm) { idHex = fm[1].toUpperCase() === 'HEX'; return; }
+        fm = line.match(/^Format of data field\s*,\s*(HEX|DEC)/i);
+        if (fm) { dataHex = fm[1].toUpperCase() === 'HEX'; return; }
+        fm = line.match(/^Logging started at\s*,\s*(.+)$/i);
+        if (fm) { TR.logStartedAt = fm[1].trim(); return; }
 
-            const parts = line.split(',');
-            if (parts.length < 5) continue;
-            const t = parseFloat(parts[cols['time']]);
-            if (!Number.isFinite(t)) continue;
-
-            const flags = parseInt(parts[cols['flags']], 10) || 0;
-            if (flags & 0x20) continue;          // error frame — not a data frame
-            const ext = (flags & 0x04) !== 0;
-            const rtr = (flags & 0x01) !== 0;
-            const dir = (flags & 0x40) ? 'tx' : 'rx';
-
-            const id = parseInt(parts[cols['id']], idHex ? 16 : 10);
-            if (!Number.isFinite(id)) continue;
-            const dlc = Math.min(parseInt(parts[cols['dlc']], 10) || 0, 8);
-
-            const data = [];
-            if (!rtr) {
-                const d0 = cols['data0'] !== undefined ? cols['data0'] : cols['dlc'] + 1;
-                for (let b = 0; b < dlc; b++) {
-                    const v = parseInt(parts[d0 + b], dataHex ? 16 : 10);
-                    data.push(Number.isFinite(v) ? v & 0xFF : 0);
-                }
-            }
-            frames.push({ t, id, ext, dlc, data, dir });
+        if (/^Time\s*,\s*Channel\s*,\s*id/i.test(line)) {
+            cols = {};
+            line.split(',').forEach((h, i) => { cols[h.trim().toLowerCase()] = i; });
+            return;
         }
-        frames.sort((a, b) => a.t - b.t);
-        return frames;
+        if (!cols) return; // still in the preamble
+
+        const parts = line.split(',');
+        if (parts.length < 5) return;
+        const t = parseFloat(parts[cols['time']]);
+        if (!Number.isFinite(t)) return;
+
+        const flags = parseInt(parts[cols['flags']], 10) || 0;
+        if (flags & 0x20) return;          // error frame — not a data frame
+        const ext = (flags & 0x04) !== 0;
+        const rtr = (flags & 0x01) !== 0;
+        const dir = (flags & 0x40) ? 'tx' : 'rx';
+
+        const id = parseInt(parts[cols['id']], idHex ? 16 : 10);
+        if (!Number.isFinite(id)) return;
+        const dlc = Math.min(parseInt(parts[cols['dlc']], 10) || 0, 8);
+
+        const data = [];
+        if (!rtr) {
+            const d0 = cols['data0'] !== undefined ? cols['data0'] : cols['dlc'] + 1;
+            for (let b = 0; b < dlc; b++) {
+                const v = parseInt(parts[d0 + b], dataHex ? 16 : 10);
+                data.push(Number.isFinite(v) ? v & 0xFF : 0);
+            }
+        }
+        frames.push({ t, id, ext, dlc, data, dir });
     }
 
     // candump: (1632222222.123456) can0 202#1027AABB  /  18FEF100#... (ext by length)
@@ -3014,7 +3116,7 @@ function trParseLogText(text, fileName) {
     // PCAN .trc (v1.x style): "     1)      1059.9  Rx     0202  8  10 27 00 ..."
     const reTrc = /^\s*\d+\)\s+([\d.]+)\s+(Rx|Tx)\s+([0-9A-Fa-f]+)\s+(\d+)((?:\s+[0-9A-Fa-f]{1,2})*)/i;
 
-    for (const line of lines) {
+    function processGenericLine(line) {
         let m;
         if ((m = line.match(reCandump))) {
             const idHexStr = m[2];
@@ -3031,8 +3133,23 @@ function trParseLogText(text, fileName) {
             frames.push({ t: parseFloat(m[1]) / 1000, id, ext: m[3].length > 4 || id > 0x7FF, dlc: parseInt(m[4], 10), data, dir: m[2].toLowerCase() });
         }
     }
-    frames.sort((a, b) => a.t - b.t);
-    return frames;
+
+    let i = 0;
+    function step() {
+        const deadline = performance.now() + 30; // yield roughly every 30ms of work
+        while (i < lines.length && performance.now() < deadline) {
+            if (isCsv) processCsvLine(lines[i]); else processGenericLine(lines[i]);
+            i++;
+        }
+        if (onProgress) onProgress(Math.min(1, i / total));
+        if (i < lines.length) {
+            setTimeout(step, 0);
+        } else {
+            frames.sort((a, b) => a.t - b.t);
+            onDone(frames);
+        }
+    }
+    step();
 }
 
 function trToggleReplay() {
@@ -3044,22 +3161,50 @@ function trToggleReplay() {
     const file = fileEl.files[0];
     if (!file) { showToast('Choose a log file first (.asc / .trc / candump .log).', 'error'); return; }
     traceRebuildDbMaps();
+
+    const playBtn = document.getElementById('trPlayBtn');
+    const parsingEl = document.getElementById('trParsing');
+    playBtn.disabled = true;
+    parsingEl.style.display = 'flex';
+    document.getElementById('trParsingLabel').innerText = `Parsing ${file.name}… 0%`;
+    document.getElementById('trParsingFill').style.width = '0%';
+    trSetStatus('Reading file…', '');
+
     const reader = new FileReader();
     reader.onload = (e) => {
         TR.logStartedAt = null;
         TR.logFileName = file.name;
-        TR.replayFrames = trParseLogText(e.target.result, file.name);
-        if (TR.replayFrames.length === 0) { showToast('No frames recognized in this log — unsupported or corrupted format.', 'error'); return; }
-        trClear();
-        if (typeof plotterUpdateMeta === 'function') plotterUpdateMeta();
-        TR.replayIdx = 0;
-        TR.replayState = 'playing';
-        TR.running = true;
-        TR.replayWallStart = performance.now();
-        TR.replayLogStart = TR.replayFrames[0].t;
-        document.getElementById('trPlayBtn').innerText = '⏸ Pause';
-        trSetStatus(`Replaying ${TR.replayFrames.length} frames from ${file.name}`, 'on');
-        trReplayStep();
+        trParseLogTextAsync(e.target.result, file.name, (frames) => {
+            parsingEl.style.display = 'none';
+            playBtn.disabled = false;
+            TR.replayFrames = frames;
+            if (frames.length === 0) {
+                showToast('No frames recognized in this log — unsupported or corrupted format.', 'error');
+                trSetStatus('Disconnected', '');
+                return;
+            }
+            trClear();
+            if (typeof plotterUpdateMeta === 'function') plotterUpdateMeta();
+            TR.replayIdx = 0;
+            TR.replayState = 'playing';
+            TR.running = true;
+            TR.replayWallStart = performance.now();
+            TR.replayLogStart = frames[0].t;
+            playBtn.innerText = '⏸ Pause';
+            document.getElementById('trSeekBarWrap').style.display = 'flex';
+            trUpdateSeekBar();
+            trSetStatus(`Replaying ${frames.length} frames from ${file.name}`, 'on');
+            trReplayStep();
+        }, (frac) => {
+            const pct = (frac * 100).toFixed(0);
+            document.getElementById('trParsingFill').style.width = pct + '%';
+            document.getElementById('trParsingLabel').innerText = `Parsing ${file.name}… ${pct}%`;
+        });
+    };
+    reader.onerror = () => {
+        parsingEl.style.display = 'none';
+        playBtn.disabled = false;
+        showToast('Could not read the log file from disk.', 'error');
     };
     reader.readAsText(file);
 }
@@ -3071,6 +3216,7 @@ function trPauseReplay() {
     TR.replayPausedAt = performance.now();
     document.getElementById('trPlayBtn').innerText = '▶ Resume';
     trSetStatus(`Replay paused — frame ${TR.replayIdx} / ${TR.replayFrames.length}`, '');
+    trUpdateSeekBar();
 }
 
 function trResumeReplay() {
@@ -3101,6 +3247,7 @@ function trReplayStep() {
             traceOnFrame(TR.replayFrames[TR.replayIdx++]);
         }
     }
+    trUpdateSeekBar();
     if (TR.replayIdx >= TR.replayFrames.length) {
         TR.replayState = 'stopped';
         TR.running = false;
@@ -3111,6 +3258,108 @@ function trReplayStep() {
     TR.replayTimer = setTimeout(trReplayStep, 10);
 }
 
+/* ---- Seek bar: scrub the replay forward/back without re-streaming every
+   frame through the DOM (which is what caused big logs to freeze on seek). ---- */
+function trTotalDuration() {
+    if (!TR.replayFrames.length) return 0;
+    return TR.replayFrames[TR.replayFrames.length - 1].t - TR.replayFrames[0].t;
+}
+
+function trCurrentReplayTime() {
+    if (!TR.replayFrames.length) return 0;
+    const idx = Math.min(TR.replayIdx, TR.replayFrames.length - 1);
+    return TR.replayFrames[idx].t - TR.replayFrames[0].t;
+}
+
+function trUpdateSeekBar() {
+    if (TR.seeking) return;
+    const bar = document.getElementById('trSeekBar');
+    const label = document.getElementById('trSeekLabel');
+    if (!bar || !label) return;
+    const dur = trTotalDuration();
+    const cur = trCurrentReplayTime();
+    bar.value = dur > 0 ? Math.round((cur / dur) * 1000) : 0;
+    label.innerText = `${cur.toFixed(1)}s / ${dur.toFixed(1)}s`;
+}
+
+// Fires continuously while dragging: just move the time label, don't seek yet
+// (seeking on every pixel of drag would repeatedly rescan the whole frame list).
+function trSeekInput() {
+    TR.seeking = true;
+    const dur = trTotalDuration();
+    const t = (document.getElementById('trSeekBar').value / 1000) * dur;
+    document.getElementById('trSeekLabel').innerText = `${t.toFixed(1)}s / ${dur.toFixed(1)}s`;
+}
+
+// Fires once the user releases the slider (or clicks/arrows it) — commits the seek.
+function trSeekCommit() {
+    TR.seeking = false;
+    if (!TR.replayFrames.length) return;
+    const dur = trTotalDuration();
+    const bar = document.getElementById('trSeekBar').value;
+    trSeekToTime(TR.replayFrames[0].t + (bar / 1000) * dur);
+}
+
+function trSeekStep(deltaSeconds) {
+    if (!TR.replayFrames.length) return;
+    trSeekToTime(TR.replayFrames[0].t + trCurrentReplayTime() + deltaSeconds);
+}
+
+function trSeekToTime(targetT) {
+    const frames = TR.replayFrames;
+    if (!frames.length) return;
+    clearTimeout(TR.replayTimer);
+    const wasPlaying = TR.replayState === 'playing';
+    TR.running = false;
+
+    const clamped = Math.max(frames[0].t, Math.min(targetT, frames[frames.length - 1].t));
+    let lo = 0, hi = frames.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (frames[mid].t < clamped) lo = mid + 1; else hi = mid;
+    }
+    const targetIdx = lo;
+
+    trClear();
+    TR.t0 = frames[0].t;
+    TR.frameCount = targetIdx;
+
+    // Reconstruct on-screen state at the seek point from just the LATEST frame
+    // per CAN ID up to targetIdx — one DOM row write per unique ID, not one per
+    // frame, so scrubbing to the middle of a multi-million-frame log is instant.
+    if (targetIdx > 0) {
+        const latestByKey = new Map();
+        for (let i = 0; i < targetIdx; i++) {
+            const f = frames[i];
+            latestByKey.set((f.ext ? 'X' : 'S') + f.id, f);
+        }
+        if (TR.mode === 'fixed') latestByKey.forEach(f => traceFixedUpdate(f));
+        if (typeof plotterOnFrame === 'function') {
+            for (let i = 0; i < targetIdx; i++) plotterOnFrame(frames[i]);
+        }
+    }
+    traceUpdateFooter();
+
+    TR.replayIdx = targetIdx;
+    TR.replayLogStart = frames[0].t;
+    const speed = parseFloat(document.getElementById('trSpeed').value) || 1;
+    TR.replayWallStart = performance.now() - ((clamped - TR.replayLogStart) / speed) * 1000;
+    trUpdateSeekBar();
+
+    if (wasPlaying) {
+        TR.replayState = 'playing';
+        TR.running = true;
+        document.getElementById('trPlayBtn').innerText = '⏸ Pause';
+        trSetStatus(`Replaying — frame ${TR.replayIdx} / ${frames.length}`, 'on');
+        trReplayStep();
+    } else {
+        TR.replayState = 'paused';
+        TR.replayPausedAt = performance.now();
+        document.getElementById('trPlayBtn').innerText = '▶ Resume';
+        trSetStatus(`Replay paused — frame ${TR.replayIdx} / ${frames.length}`, '');
+    }
+}
+
 // Picking a different log file resets the state machine so the next press of
 // the button starts the new file from the beginning.
 function trReplayFileChanged() {
@@ -3118,8 +3367,10 @@ function trReplayFileChanged() {
     TR.replayState = 'stopped';
     TR.running = false;
     TR.replayIdx = 0;
+    TR.replayFrames = [];
     const btn = document.getElementById('trPlayBtn');
     if (btn) btn.innerText = '▶ Play';
+    document.getElementById('trSeekBarWrap').style.display = 'none';
     trSetStatus('Log file selected — press Play', '');
 }
 
