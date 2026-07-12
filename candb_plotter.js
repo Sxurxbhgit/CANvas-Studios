@@ -30,6 +30,7 @@ function plotterToggle() {
     if (!PLT.built) plotterBuild();
     PLT.open = !PLT.open;
     document.getElementById('pltPanel').style.display = PLT.open ? 'flex' : 'none';
+    document.getElementById('pltResizeHandle').style.display = PLT.open ? 'block' : 'none';
     if (PLT.open) {
         plotterPopulateMsgSelect();
         plotterUpdateMeta();
@@ -48,21 +49,24 @@ function plotterBuild() {
     style.textContent = `
         #trMainRow { display:flex; flex:1; min-height:0; }
         #pltPanel { width:480px; flex-shrink:0; border-left:1px solid var(--border-color); background:var(--bg-panel); display:none; flex-direction:column; min-height:0; }
-        .plt-head { padding:8px 12px; background:#141e2e; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        #pltResizeHandle { width:6px; flex-shrink:0; cursor:col-resize; background:var(--border-color); position:relative; display:none; }
+        #pltResizeHandle::before { content:''; position:absolute; inset:0 -3px; }
+        #pltResizeHandle:hover, #pltResizeHandle.dragging { background:var(--accent); }
+        .plt-head { padding:8px 12px; background:var(--bg-header); border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
         .plt-head b { font-size:0.8rem; }
         .plt-meta { font-size:0.68rem; color:var(--text-muted); font-family:var(--font-mono); padding:5px 12px; border-bottom:1px solid var(--border-color); flex-shrink:0; }
-        .plt-meta b { color:#93c5fd; font-weight:600; }
+        .plt-meta b { color:var(--accent-blue); font-weight:600; }
         .plt-ctl { display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px; border-bottom:1px solid var(--border-color); align-items:center; flex-shrink:0; }
         .plt-ctl select, .plt-ctl button { background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); padding:4px 7px; border-radius:4px; font-family:var(--font-mono); font-size:0.72rem; outline:none; cursor:pointer; }
         .plt-ctl select:focus { border-color:var(--accent); }
         .plt-ctl button:hover { border-color:var(--accent); }
-        .plt-ctl button.primary { background:rgba(59,130,246,0.2); border-color:var(--accent); color:#93c5fd; }
+        .plt-ctl button.primary { background:rgba(59,130,246,0.2); border-color:var(--accent); color:var(--accent-blue); }
         .plt-legend { padding:6px 12px; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:3px; max-height:130px; overflow-y:auto; flex-shrink:0; }
         .plt-chip { display:flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:0.72rem; cursor:pointer; user-select:none; }
         .plt-chip .sw { width:11px; height:11px; border-radius:2px; flex-shrink:0; border:1px solid rgba(255,255,255,0.25); }
         .plt-chip.hidden-sig { opacity:0.35; }
         .plt-chip .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-main); }
-        .plt-chip .val { color:#fbbf24; font-weight:700; }
+        .plt-chip .val { color:var(--accent-amber-bright); font-weight:700; }
         .plt-chip .rm { color:var(--text-muted); padding:0 4px; }
         .plt-chip .rm:hover { color:var(--error); }
         .plt-canvas-wrap { flex:1; min-height:120px; position:relative; }
@@ -78,6 +82,12 @@ function plotterBuild() {
     row.id = 'trMainRow';
     wrap.parentNode.insertBefore(row, wrap);
     row.appendChild(wrap);
+
+    const handle = document.createElement('div');
+    handle.id = 'pltResizeHandle';
+    handle.title = 'Drag to resize the plotter width';
+    handle.addEventListener('mousedown', plotterResizeStart);
+    row.appendChild(handle);
 
     const panel = document.createElement('div');
     panel.id = 'pltPanel';
@@ -110,6 +120,37 @@ function plotterBuild() {
         </div>
     `;
     row.appendChild(panel);
+}
+
+/* ============================= RESIZE HANDLE ============================= */
+let pltResizeStartX = 0, pltResizeStartW = 0;
+
+function plotterResizeStart(e) {
+    pltResizeStartX = e.clientX;
+    pltResizeStartW = document.getElementById('pltPanel').offsetWidth;
+    document.getElementById('pltResizeHandle').classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', plotterResizeMove);
+    document.addEventListener('mouseup', plotterResizeEnd);
+    e.preventDefault();
+}
+
+function plotterResizeMove(e) {
+    // Panel sits on the right of the handle, so dragging left (negative dx) widens it.
+    const dx = pltResizeStartX - e.clientX;
+    const min = 260, max = Math.max(min, window.innerWidth - 320);
+    const w = Math.max(min, Math.min(pltResizeStartW + dx, max));
+    document.getElementById('pltPanel').style.width = w + 'px';
+    PLT.dirty = true;
+}
+
+function plotterResizeEnd() {
+    document.getElementById('pltResizeHandle').classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    document.removeEventListener('mousemove', plotterResizeMove);
+    document.removeEventListener('mouseup', plotterResizeEnd);
 }
 
 /* ============================= META (log start timestamp) ============================= */
@@ -333,9 +374,15 @@ function plotterDraw() {
     const xOf = t => padL + ((t - tMin) / (tMax - tMin)) * plotW;
     const yOf = v => padT + (1 - (v - yMin) / (yMax - yMin)) * plotH;
 
-    // --- Grid + axes
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-    ctx.fillStyle = '#64748b';
+    // --- Grid + axes (colors follow the active dark/light theme via CSS vars,
+    // read fresh each draw since a <canvas> can't reference var() directly)
+    const themeVars = getComputedStyle(document.documentElement);
+    const gridColor = themeVars.getPropertyValue('--plot-grid').trim() || 'rgba(255,255,255,0.07)';
+    const axisColor = themeVars.getPropertyValue('--plot-axis').trim() || 'rgba(255,255,255,0.25)';
+    const tickColor = themeVars.getPropertyValue('--plot-tick-text').trim() || '#64748b';
+
+    ctx.strokeStyle = gridColor;
+    ctx.fillStyle = tickColor;
     ctx.font = '10px Consolas, monospace';
     ctx.lineWidth = 1;
 
@@ -351,7 +398,7 @@ function plotterDraw() {
         ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke();
         ctx.fillText(+t.toFixed(2) + 's', x - 12, H - 8);
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.strokeStyle = axisColor;
     ctx.strokeRect(padL, padT, plotW, plotH);
 
     // --- Series (step-style lines: signal values hold between samples)
