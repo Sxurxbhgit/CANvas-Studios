@@ -2607,7 +2607,7 @@ function traceInit() {
             <span id="trReplayCtl" style="display:none; align-items:center; gap:8px;">
                 <input type="file" id="trLogFile" accept=".asc,.trc,.log,.txt,.csv" style="font-size:0.72rem; color:var(--text-muted);" onchange="trReplayFileChanged()">
                 <label>Speed</label>
-                <select id="trSpeed"><option value="1">1×</option><option value="10">10×</option><option value="100">100×</option><option value="0">Max</option></select>
+                <select id="trSpeed"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="100">100×</option></select>
                 <button class="toolbar-btn primary" id="trPlayBtn" onclick="trToggleReplay()">▶ Play</button>
             </span>
 
@@ -3235,17 +3235,11 @@ function trReplayStep() {
     const speed = parseFloat(document.getElementById('trSpeed').value);
     const batchDeadline = performance.now() + 8; // stay responsive
 
-    if (speed === 0) { // Max: pump in chunks
-        while (TR.replayIdx < TR.replayFrames.length && performance.now() < batchDeadline) {
-            traceOnFrame(TR.replayFrames[TR.replayIdx++]);
-        }
-    } else {
-        const elapsedLog = ((performance.now() - TR.replayWallStart) / 1000) * speed;
-        while (TR.replayIdx < TR.replayFrames.length &&
-               TR.replayFrames[TR.replayIdx].t - TR.replayLogStart <= elapsedLog &&
-               performance.now() < batchDeadline) {
-            traceOnFrame(TR.replayFrames[TR.replayIdx++]);
-        }
+    const elapsedLog = ((performance.now() - TR.replayWallStart) / 1000) * speed;
+    while (TR.replayIdx < TR.replayFrames.length &&
+           TR.replayFrames[TR.replayIdx].t - TR.replayLogStart <= elapsedLog &&
+           performance.now() < batchDeadline) {
+        traceOnFrame(TR.replayFrames[TR.replayIdx++]);
     }
     trUpdateSeekBar();
     if (TR.replayIdx >= TR.replayFrames.length) {
@@ -3342,7 +3336,7 @@ function trSeekToTime(targetT) {
 
     TR.replayIdx = targetIdx;
     TR.replayLogStart = frames[0].t;
-    const speed = parseFloat(document.getElementById('trSpeed').value) || 1;
+    const speed = parseFloat(document.getElementById('trSpeed').value);
     TR.replayWallStart = performance.now() - ((clamped - TR.replayLogStart) / speed) * 1000;
     trUpdateSeekBar();
 

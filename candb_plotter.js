@@ -61,14 +61,20 @@ function plotterBuild() {
         .plt-ctl select:focus { border-color:var(--accent); }
         .plt-ctl button:hover { border-color:var(--accent); }
         .plt-ctl button.primary { background:rgba(59,130,246,0.2); border-color:var(--accent); color:var(--accent-blue); }
+        .plt-ctl button:disabled { opacity:0.35; cursor:not-allowed; border-color:var(--border-color); }
+        .plt-ctl button:disabled:hover { border-color:var(--border-color); }
         .plt-legend { padding:6px 12px; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:3px; max-height:130px; overflow-y:auto; flex-shrink:0; }
-        .plt-chip { display:flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:0.72rem; cursor:pointer; user-select:none; }
+        .plt-chip { display:flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:0.72rem; cursor:pointer; user-select:none; }
         .plt-chip .sw { width:11px; height:11px; border-radius:2px; flex-shrink:0; border:1px solid rgba(255,255,255,0.25); }
         .plt-chip.hidden-sig { opacity:0.35; }
-        .plt-chip .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-main); }
+        .plt-chip .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-main); min-width:24px; }
         .plt-chip .val { color:var(--accent-amber-bright); font-weight:700; }
         .plt-chip .rm { color:var(--text-muted); padding:0 4px; }
         .plt-chip .rm:hover { color:var(--error); }
+        .plt-axis-badge { flex-shrink:0; width:14px; height:14px; line-height:14px; text-align:center; border-radius:3px; font-size:0.62rem; font-weight:700; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-muted); cursor:pointer; }
+        .plt-axis-badge:hover { border-color:var(--accent); color:var(--accent-blue); }
+        .plt-scale-input, .plt-offset-input { flex-shrink:0; width:36px; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-main); border-radius:3px; font-family:var(--font-mono); font-size:0.65rem; padding:2px 3px; cursor:text; }
+        .plt-scale-input:focus, .plt-offset-input:focus { outline:none; border-color:var(--accent); }
         .plt-canvas-wrap { flex:1; min-height:120px; position:relative; }
         .plt-canvas-wrap canvas { position:absolute; inset:0; width:100%; height:100%; }
         .plt-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:0.78rem; text-align:center; padding:20px; }
@@ -112,6 +118,7 @@ function plotterBuild() {
             </select>
             <button id="pltPauseBtn" onclick="plotterPause()">⏸</button>
             <button onclick="plotterClearPoints()" title="Clear plotted points">🧹</button>
+            <button id="pltExportBtn" onclick="plotterOpenExportDialog()" title="Save plot as image (pause the plot or the trace/replay first)" disabled>💾</button>
         </div>
         <div class="plt-legend" id="pltLegend"></div>
         <div class="plt-canvas-wrap">
@@ -214,7 +221,8 @@ function plotterAddSignal() {
         msgName: x.msg.name, sigName: sig.name,
         label: `${multi ? x.fileName + ' :: ' : ''}${x.msg.name}.${sig.name}`,
         color: sigColors[PLT.series.length % sigColors.length],
-        points: [], last: null, min: Infinity, max: -Infinity, visible: true
+        points: [], last: null, min: Infinity, max: -Infinity, visible: true,
+        axis: 'left', plotScale: 1, plotOffset: 0
     });
     plotterRenderLegend();
     PLT.dirty = true;
@@ -238,12 +246,33 @@ function plotterRenderLegend() {
         const unit = plotterSigUnit(s);
         return `<div class="plt-chip ${s.visible ? '' : 'hidden-sig'}" onclick="plotterToggleVisible(${i})" title="Click to show/hide">
             <span class="sw" style="background:${s.color}"></span>
+            <span class="plt-axis-badge" onclick="event.stopPropagation(); plotterToggleAxis(${i})" title="Move to ${s.axis === 'right' ? 'left' : 'right'} axis (Common Y mode)">${s.axis === 'right' ? 'R' : 'L'}</span>
             <span class="nm">${escapeHtml(s.label || (s.msgName + '.' + s.sigName))}</span>
+            <input class="plt-scale-input" type="number" step="0.1" value="${s.plotScale}" title="Plot scale (×) — line only, legend value stays true"
+                onclick="event.stopPropagation()" oninput="plotterSetScale(${i}, this.value)">
+            <input class="plt-offset-input" type="number" step="0.1" value="${s.plotOffset}" title="Plot offset (+) — line only, legend value stays true"
+                onclick="event.stopPropagation()" oninput="plotterSetOffset(${i}, this.value)">
             <span class="val">${s.last === null ? '—' : s.last}${unit ? ' ' + escapeHtml(unit) : ''}</span>
             <span class="rm" onclick="event.stopPropagation(); plotterRemoveSignal(${i})">✕</span>
         </div>`;
     }).join('');
     document.getElementById('pltEmpty').style.display = PLT.series.length ? 'none' : 'flex';
+}
+
+function plotterToggleAxis(idx) {
+    PLT.series[idx].axis = PLT.series[idx].axis === 'right' ? 'left' : 'right';
+    plotterRenderLegend();
+    PLT.dirty = true;
+}
+
+function plotterSetScale(idx, raw) {
+    const n = parseFloat(raw);
+    if (Number.isFinite(n)) { PLT.series[idx].plotScale = n; PLT.dirty = true; }
+}
+
+function plotterSetOffset(idx, raw) {
+    const n = parseFloat(raw);
+    if (Number.isFinite(n)) { PLT.series[idx].plotOffset = n; PLT.dirty = true; }
 }
 
 function plotterResolveSig(s) {
@@ -303,13 +332,32 @@ function plotterYModeChanged() { PLT.yMode = document.getElementById('pltYMode')
 function plotterPause() {
     PLT.paused = !PLT.paused;
     document.getElementById('pltPauseBtn').innerText = PLT.paused ? '▶' : '⏸';
+    plotterSyncExportBtn();
     PLT.dirty = true;
 }
 function plotterClearPoints() { plotterOnTraceClear(); }
 
+// True whenever nothing can currently push new points into the plot — either the
+// plotter's own Pause is on, or the active source (replay/live/serial/WiFi) isn't
+// streaming right now. Image export is safe/meaningful exactly in this state.
+function plotterIsFrozen() {
+    if (PLT.paused) return true;
+    if (TR.source === 'replay') return TR.replayState !== 'playing';
+    if (TR.source === 'live') return !TR.connected;
+    if (TR.source === 'serial') return !(typeof SER !== 'undefined' && SER.connected);
+    if (TR.source === 'wifi') return !(typeof WIFI !== 'undefined' && WIFI.connected);
+    return true;
+}
+
+function plotterSyncExportBtn() {
+    const btn = document.getElementById('pltExportBtn');
+    if (btn) btn.disabled = !plotterIsFrozen();
+}
+
 /* ============================= RENDER LOOP ============================= */
 function plotterLoop() {
     if (!PLT.open) return;
+    plotterSyncExportBtn();
     if (PLT.dirty) {
         PLT.dirty = false;
         plotterDraw();
@@ -342,12 +390,31 @@ function plotterDraw() {
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    plotterRenderToContext(ctx, W, H);
+}
+
+// Plot-only transform: scales/shifts the drawn line so mismatched-magnitude
+// signals can share an axis. The legend's live value stays the true decoded
+// reading — this never touches s.last.
+function plotterDisplayVal(s, v) { return v * s.plotScale + s.plotOffset; }
+
+// Shared by the live canvas (plotterDraw) and image export (plotterExportImage)
+// so both always render identically.
+function plotterRenderToContext(ctx, W, H) {
+    const themeVars = getComputedStyle(document.documentElement);
+    const bgColor = themeVars.getPropertyValue('--bg-panel').trim() || '#0f172a';
     ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
 
     const visible = PLT.series.filter(s => s.visible && s.points.length > 0);
     if (visible.length === 0) return;
 
-    const padL = 52, padR = 10, padT = 8, padB = 22;
+    const rightSeries = PLT.yMode === 'common' ? visible.filter(s => s.axis === 'right') : [];
+    const leftSeries = PLT.yMode === 'common' ? visible.filter(s => s.axis !== 'right') : visible;
+    const hasRightAxis = rightSeries.length > 0;
+
+    const padL = 52, padR = hasRightAxis ? 52 : 10, padT = 8, padB = 22;
     const plotW = W - padL - padR, plotH = H - padT - padB;
 
     // --- X range: rolling window ending at the latest sample across all series
@@ -357,26 +424,35 @@ function plotterDraw() {
     if (PLT.windowSec === 0) visible.forEach(s => { tMin = Math.min(tMin, s.points[0].t); });
     if (!(tMax > tMin)) { tMin = tMax - 1; }
 
-    // --- Y range
-    let yMin = Infinity, yMax = -Infinity;
-    if (PLT.yMode === 'common') {
-        visible.forEach(s => s.points.forEach(p => {
+    // --- Y range(s)
+    function commonRange(series) {
+        let yMin = Infinity, yMax = -Infinity;
+        series.forEach(s => s.points.forEach(p => {
             if (p.t < tMin) return;
-            if (p.v < yMin) yMin = p.v;
-            if (p.v > yMax) yMax = p.v;
+            const dv = plotterDisplayVal(s, p.v);
+            if (dv < yMin) yMin = dv;
+            if (dv > yMax) yMax = dv;
         }));
         if (yMin === Infinity) { yMin = 0; yMax = 1; }
         if (yMin === yMax) { yMin -= 1; yMax += 1; }
         const pad = (yMax - yMin) * 0.08;
-        yMin -= pad; yMax += pad;
-    } else { yMin = 0; yMax = 100; }
+        return { min: yMin - pad, max: yMax + pad };
+    }
+
+    let leftRange, rightRange;
+    if (PLT.yMode === 'common') {
+        leftRange = commonRange(leftSeries.length ? leftSeries : visible);
+        if (hasRightAxis) rightRange = commonRange(rightSeries);
+    } else {
+        leftRange = { min: 0, max: 100 };
+    }
 
     const xOf = t => padL + ((t - tMin) / (tMax - tMin)) * plotW;
-    const yOf = v => padT + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+    const yOfLeft = v => padT + (1 - (v - leftRange.min) / (leftRange.max - leftRange.min)) * plotH;
+    const yOfRight = hasRightAxis ? (v => padT + (1 - (v - rightRange.min) / (rightRange.max - rightRange.min)) * plotH) : null;
 
     // --- Grid + axes (colors follow the active dark/light theme via CSS vars,
     // read fresh each draw since a <canvas> can't reference var() directly)
-    const themeVars = getComputedStyle(document.documentElement);
     const gridColor = themeVars.getPropertyValue('--plot-grid').trim() || 'rgba(255,255,255,0.07)';
     const axisColor = themeVars.getPropertyValue('--plot-axis').trim() || 'rgba(255,255,255,0.25)';
     const tickColor = themeVars.getPropertyValue('--plot-tick-text').trim() || '#64748b';
@@ -386,11 +462,19 @@ function plotterDraw() {
     ctx.font = '10px Consolas, monospace';
     ctx.lineWidth = 1;
 
-    const yStep = plotterNiceStep(yMax - yMin, 6);
-    for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) {
-        const y = yOf(v);
+    const yStep = plotterNiceStep(leftRange.max - leftRange.min, 6);
+    for (let v = Math.ceil(leftRange.min / yStep) * yStep; v <= leftRange.max; v += yStep) {
+        const y = yOfLeft(v);
         ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
         ctx.fillText(PLT.yMode === 'norm' ? v + '%' : +v.toFixed(3), 4, y + 3);
+    }
+    if (hasRightAxis) {
+        const rStep = plotterNiceStep(rightRange.max - rightRange.min, 6);
+        ctx.fillStyle = tickColor;
+        for (let v = Math.ceil(rightRange.min / rStep) * rStep; v <= rightRange.max; v += rStep) {
+            const y = yOfRight(v);
+            ctx.fillText(+v.toFixed(3), W - padR + 4, y + 3);
+        }
     }
     const xStep = plotterNiceStep(tMax - tMin, 6);
     for (let t = Math.ceil(tMin / xStep) * xStep; t <= tMax; t += xStep) {
@@ -406,7 +490,8 @@ function plotterDraw() {
         // Per-signal normalization for the '%' mode
         let nMin = s.min, nMax = s.max;
         if (nMin === nMax) { nMin -= 1; nMax += 1; }
-        const val = PLT.yMode === 'norm' ? (p => ((p.v - nMin) / (nMax - nMin)) * 100) : (p => p.v);
+        const yOf = (s.axis === 'right' && yOfRight) ? yOfRight : yOfLeft;
+        const val = PLT.yMode === 'norm' ? (p => ((p.v - nMin) / (nMax - nMin)) * 100) : (p => plotterDisplayVal(s, p.v));
 
         ctx.strokeStyle = s.color;
         ctx.lineWidth = 1.5;
@@ -428,4 +513,69 @@ function plotterDraw() {
         if (started && prevY !== null) ctx.lineTo(W - padR, prevY);
         ctx.stroke();
     });
+}
+
+/* ============================= IMAGE EXPORT (paused only) ============================= */
+function plotterOpenExportDialog() {
+    if (!plotterIsFrozen()) return;
+    const canvas = document.getElementById('pltCanvas');
+    const defW = Math.max(1, Math.round(canvas.clientWidth)) || 800;
+    const defH = Math.max(1, Math.round(canvas.clientHeight)) || 400;
+    openModal('Save Plot Image',
+        `<label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Format</label>
+         <select id="imgFormatSel">
+            <option value="image/png">PNG (lossless)</option>
+            <option value="image/jpeg">JPEG</option>
+         </select>
+         <label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Size (px)</label>
+         <div style="display:flex; align-items:center; gap:6px;">
+            <input type="number" id="imgWidthInput" value="${defW}" min="100" max="4000" style="flex:1;">
+            <span style="color:var(--text-muted);">×</span>
+            <input type="number" id="imgHeightInput" value="${defH}" min="100" max="4000" style="flex:1;">
+         </div>
+         <label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Resolution</label>
+         <select id="imgScaleSel">
+            <option value="1">1x (standard)</option>
+            <option value="2" selected>2x (high-res)</option>
+            <option value="3">3x (ultra)</option>
+         </select>
+         <div class="modal-error-text" id="imgExportErr"></div>`,
+        [
+            { label: 'Cancel', onClick: closeModal },
+            { label: 'Download', variant: 'primary', onClick: () => {
+                const w = parseInt(document.getElementById('imgWidthInput').value, 10);
+                const h = parseInt(document.getElementById('imgHeightInput').value, 10);
+                const scale = parseInt(document.getElementById('imgScaleSel').value, 10);
+                const format = document.getElementById('imgFormatSel').value;
+                if (!Number.isFinite(w) || w < 100 || w > 4000 || !Number.isFinite(h) || h < 100 || h > 4000) {
+                    document.getElementById('imgExportErr').innerText = 'Width and height must be between 100 and 4000 px.';
+                    return;
+                }
+                closeModal();
+                plotterExportImage(w, h, scale, format);
+            } }
+        ]);
+}
+
+function plotterExportImage(width, height, scale, format) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    plotterRenderToContext(ctx, width, height);
+
+    const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+    const ext = format === 'image/jpeg' ? 'jpg' : 'png';
+    canvas.toBlob(blob => {
+        if (!blob) { showToast('Image export failed.', 'error'); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `canvas-studios-plot_${ts}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, format, format === 'image/jpeg' ? 0.92 : undefined);
 }
