@@ -2469,7 +2469,10 @@
 
    Frame sources:
      - Live:   WebSocket to kvaser_bridge.py (python-can, Kvaser Leaf Light v2)
-     - Replay: log file playback (Vector .asc, PCAN .trc, candump .log)
+               — kvaser_bridge.py is Windows-only (Kvaser CANlib SDK driver)
+     - Live:   Web Serial (candb_serial.js) — Chrome/Edge, any OS
+     - Live:   WebSocket to a WiFi device (candb_wifi.js) — any OS, any browser
+     - Replay: log file playback (Vector .asc, PCAN .trc, candump .log) — any OS
 ============================================================================= */
 
 /* ============================= VIEW SWITCHING ============================= */
@@ -2581,10 +2584,10 @@ function traceInit() {
         <div class="tr-bar">
             <label>Source</label>
             <select id="trSource" onchange="trSourceChanged()">
-                <option value="live">Live — Kvaser via WebSocket</option>
-                <option value="serial">Live — Serial (host device)</option>
-                <option value="wifi">Live — WiFi device (WebSocket)</option>
-                <option value="replay">Replay — Log file</option>
+                <option value="live">Live — Kvaser via WebSocket (Windows only)</option>
+                <option value="serial">Live — Serial (host device) (Chrome/Edge, any OS)</option>
+                <option value="wifi">Live — WiFi device (WebSocket) (any OS)</option>
+                <option value="replay">Replay — Log file (any OS)</option>
             </select>
 
             <span id="trLiveCtl" style="display:flex; align-items:center; gap:8px;">

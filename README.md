@@ -40,7 +40,7 @@ CANvas Studios started as a web replacement for Vector CANdb++, and grew into a 
 
 | Source | How | Works on |
 |---|---|---|
-| **Kvaser Leaf Light v2** | Python-can WebSocket bridge (`kvaser_bridge.py`) | Windows / Linux |
+| **Kvaser Leaf Light v2** | Python-can WebSocket bridge (`kvaser_bridge.py`) | **Windows only** (Kvaser CANlib SDK driver) |
 | **Serial** (host device) | Web Serial API — direct browser access | Chrome / Edge, all OS incl. macOS |
 | **WiFi device** | WebSocket to an ESP32 (or similar) | Any OS, any browser |
 | **Replay** | `.asc`, `.trc`, candump `.log`, or Kvaser Memorator `.csv` | Any OS, any browser |
@@ -65,18 +65,20 @@ CANvas Studios started as a web replacement for Vector CANdb++, and grew into a 
 
 ## For live CAN with your own hardware
 
-### ESP32 over WiFi (easiest — any OS)
+### ESP32 over WiFi — any OS, any browser (easiest)
 Flash the included [`esp32_can_wifi_bridge.ino`](esp32_can_wifi_bridge.ino) sketch to any ESP32 with a CAN transceiver (SN65HVD230 recommended). Connect to the AP it broadcasts, then in the trace tool point WiFi to `ws://192.168.4.1:81`. Text and JSON output formats both supported.
 
-### Serial (USB adapter, Arduino, Bluetooth SPP)
+### Serial (USB adapter, Arduino, Bluetooth SPP) — Chrome / Edge, any OS incl. macOS
 Any host device that emits CAN frames as delimited text lines. Set the field order in the UI — `id` and `data` are required, everything else optional. Works with Web Serial in Chrome / Edge.
 
-### Kvaser Leaf Light v2
+### Kvaser Leaf Light v2 — Windows only
+The Kvaser CANlib SDK only ships Windows drivers (`canlib32.dll`), which `python-can`'s `kvaser` interface depends on — so `kvaser_bridge.py` will not run on macOS or Linux. Use the WiFi or Serial source above on those platforms instead.
 ```bash
-pip install python-can canlib websockets
+# Windows only — also install the Kvaser CANlib SDK/drivers first: https://www.kvaser.com/downloads/
+pip install python-can websockets
 python kvaser_bridge.py
 ```
-Then Connect in the trace tool. See `kvaser_bridge.py` for options.
+Then Connect in the trace tool (Source: *Live — Kvaser via WebSocket*). See `kvaser_bridge.py` for options and the WebSocket protocol it speaks.
 
 ---
 
@@ -87,7 +89,7 @@ index.html            The whole app
 candb_plotter.js      Signal plotter
 candb_serial.js       Web Serial live source
 candb_wifi.js         WebSocket live source (WiFi devices)
-kvaser_bridge.py      Optional: Kvaser Leaf Light v2 bridge
+kvaser_bridge.py      Optional: Kvaser Leaf Light v2 bridge (Windows only)
 esp32_can_wifi_bridge.ino    Optional: ESP32 firmware
 ```
 
