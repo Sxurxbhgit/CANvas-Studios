@@ -2357,6 +2357,19 @@
         doGenerateMatlab(targetMsgs, requestedName);
     }
 
+    // The ECOCAN .m format wants start_bit to always be the signal's LSB position
+    // in the flat byte*8+bit DBC numbering -- Intel signals already store that
+    // directly, but Motorola (@0) signals store the MSB, and computing the LSB
+    // requires walking the DBC zig-zag byte-crossing scheme (computeSignalBits()
+    // does exactly that walk for the layout matrix). The Vector__XXX independent-
+    // signal container has no real frame bytes (payload_size 0), so the golden
+    // Ecotron sample leaves its start bits unconverted -- skip the walk there too.
+    function matlabExportStartBit(sig, msg) {
+        if (msg.isIndependent || sig.order === '1') return sig.start;
+        const bits = computeSignalBits(sig);
+        return bits[bits.length - 1];
+    }
+
     function doGenerateMatlab(targetMsgs, requestedName) {
         const dict = matlabMsgDict();
 
@@ -2420,7 +2433,7 @@
 
                 outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.name = '${sig.name}';`);
                 outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.units = '${sig.unit}';`);
-                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.start_bit = ${sig.start};`);
+                outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.start_bit = ${matlabExportStartBit(sig, msg)};`);
                 outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.bit_length = ${sig.len};`);
                 outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.byte_order = '${byteOrder}';`);
                 outStr.push(`    ${structName}.${msgName}.fields{${sIdx + 1}}.data_type = '${dataType}';`);
