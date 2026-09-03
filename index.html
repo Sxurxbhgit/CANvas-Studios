@@ -2485,7 +2485,8 @@
                — kvaser_bridge.py is Windows-only (Kvaser CANlib SDK driver)
      - Live:   Web Serial (candb_serial.js) — Chrome/Edge, any OS
      - Live:   WebSocket to a WiFi device (candb_wifi.js) — any OS, any browser
-     - Replay: log file playback (Vector .asc, PCAN .trc, candump .log) — any OS
+     - Replay: log file playback (Vector .asc/.blf, PCAN .trc, candump .log) — any OS
+               (.blf decoding needs a browser with DecompressionStream support)
 ============================================================================= */
 
 /* ============================= VIEW SWITCHING ============================= */
@@ -2621,7 +2622,7 @@ function traceInit() {
             <span id="trWifiCtl" style="display:none; align-items:center; gap:8px; flex-wrap:wrap;"></span>
 
             <span id="trReplayCtl" style="display:none; align-items:center; gap:8px;">
-                <input type="file" id="trLogFile" accept=".asc,.trc,.log,.txt,.csv" style="font-size:0.72rem; color:var(--text-muted);" onchange="trReplayFileChanged()">
+                <input type="file" id="trLogFile" accept=".asc,.trc,.log,.txt,.csv,.blf" style="font-size:0.72rem; color:var(--text-muted);" onchange="trReplayFileChanged()">
                 <label>Speed</label>
                 <select id="trSpeed"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="100">100×</option></select>
                 <button class="toolbar-btn primary" id="trPlayBtn" onclick="trToggleReplay()">▶ Play</button>
@@ -3168,6 +3169,29 @@ function trParseLogTextAsync(text, fileName, onDone, onProgress) {
     step();
 }
 
+function trOnReplayFramesParsed(frames, file, playBtn, parsingEl) {
+    parsingEl.style.display = 'none';
+    playBtn.disabled = false;
+    TR.replayFrames = frames;
+    if (frames.length === 0) {
+        showToast('No frames recognized in this log — unsupported or corrupted format.', 'error');
+        trSetStatus('Disconnected', '');
+        return;
+    }
+    trClear();
+    if (typeof plotterUpdateMeta === 'function') plotterUpdateMeta();
+    TR.replayIdx = 0;
+    TR.replayState = 'playing';
+    TR.running = true;
+    TR.replayWallStart = performance.now();
+    TR.replayLogStart = frames[0].t;
+    playBtn.innerText = '⏸ Pause';
+    document.getElementById('trSeekBarWrap').style.display = 'flex';
+    trUpdateSeekBar();
+    trSetStatus(`Replaying ${frames.length} frames from ${file.name}`, 'on');
+    trReplayStep();
+}
+
 function trToggleReplay() {
     if (TR.replayState === 'playing') { trPauseReplay(); return; }
     if (TR.replayState === 'paused') { trResumeReplay(); return; }
@@ -3175,7 +3199,7 @@ function trToggleReplay() {
     // stopped -> load the file and start from the beginning
     const fileEl = document.getElementById('trLogFile');
     const file = fileEl.files[0];
-    if (!file) { showToast('Choose a log file first (.asc / .trc / candump .log).', 'error'); return; }
+    if (!file) { showToast('Choose a log file first (.asc / .blf / .trc / candump .log).', 'error'); return; }
     traceRebuildDbMaps();
 
     const playBtn = document.getElementById('trPlayBtn');
@@ -3186,43 +3210,38 @@ function trToggleReplay() {
     document.getElementById('trParsingFill').style.width = '0%';
     trSetStatus('Reading file…', '');
 
+    const isBlf = file.name.toLowerCase().endsWith('.blf');
+    const onProgress = (frac) => {
+        const pct = (frac * 100).toFixed(0);
+        document.getElementById('trParsingFill').style.width = pct + '%';
+        document.getElementById('trParsingLabel').innerText = `Parsing ${file.name}… ${pct}%`;
+    };
+
     const reader = new FileReader();
     reader.onload = (e) => {
         TR.logStartedAt = null;
         TR.logFileName = file.name;
-        trParseLogTextAsync(e.target.result, file.name, (frames) => {
-            parsingEl.style.display = 'none';
-            playBtn.disabled = false;
-            TR.replayFrames = frames;
-            if (frames.length === 0) {
-                showToast('No frames recognized in this log — unsupported or corrupted format.', 'error');
-                trSetStatus('Disconnected', '');
-                return;
-            }
-            trClear();
-            if (typeof plotterUpdateMeta === 'function') plotterUpdateMeta();
-            TR.replayIdx = 0;
-            TR.replayState = 'playing';
-            TR.running = true;
-            TR.replayWallStart = performance.now();
-            TR.replayLogStart = frames[0].t;
-            playBtn.innerText = '⏸ Pause';
-            document.getElementById('trSeekBarWrap').style.display = 'flex';
-            trUpdateSeekBar();
-            trSetStatus(`Replaying ${frames.length} frames from ${file.name}`, 'on');
-            trReplayStep();
-        }, (frac) => {
-            const pct = (frac * 100).toFixed(0);
-            document.getElementById('trParsingFill').style.width = pct + '%';
-            document.getElementById('trParsingLabel').innerText = `Parsing ${file.name}… ${pct}%`;
-        });
+        if (isBlf) {
+            parseBlfArrayBuffer(e.target.result, onProgress)
+                .then((frames) => trOnReplayFramesParsed(frames, file, playBtn, parsingEl))
+                .catch((err) => {
+                    parsingEl.style.display = 'none';
+                    playBtn.disabled = false;
+                    showToast('Could not parse BLF file: ' + err.message, 'error');
+                    trSetStatus('Disconnected', '');
+                });
+        } else {
+            trParseLogTextAsync(e.target.result, file.name,
+                (frames) => trOnReplayFramesParsed(frames, file, playBtn, parsingEl),
+                onProgress);
+        }
     };
     reader.onerror = () => {
         parsingEl.style.display = 'none';
         playBtn.disabled = false;
         showToast('Could not read the log file from disk.', 'error');
     };
-    reader.readAsText(file);
+    if (isBlf) reader.readAsArrayBuffer(file); else reader.readAsText(file);
 }
 
 function trPauseReplay() {
@@ -3495,5 +3514,6 @@ function trStopAllCyclic() {
 <script src="candb_plotter.js"></script>
 <script src="candb_serial.js"></script>
 <script src="candb_wifi.js"></script>
+<script src="candb_blf.js"></script>
 </body>
 </html>

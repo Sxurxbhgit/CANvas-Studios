@@ -43,7 +43,7 @@ CANvas Studios started as a web replacement for Vector CANdb++, and grew into a 
 | **Kvaser Leaf Light v2** | Python-can WebSocket bridge (`kvaser_bridge.py`) | **Windows only** (Kvaser CANlib SDK driver) |
 | **Serial** (host device) | Web Serial API — direct browser access | Chrome / Edge, all OS incl. macOS |
 | **WiFi device** | WebSocket to an ESP32 (or similar) | Any OS, any browser |
-| **Replay** | `.asc`, `.trc`, candump `.log`, or Kvaser Memorator `.csv` | Any OS, any browser |
+| **Replay** | `.asc`, `.blf`, `.trc`, candump `.log`, or Kvaser Memorator `.csv` | Any OS, any browser (`.blf` needs `DecompressionStream` — Chrome/Edge, Firefox 113+, Safari 16.4+) |
 
 ### 📈 Signal plotter
 - Multi-signal time-series plotting from any messages across any loaded DBCs
@@ -57,7 +57,7 @@ CANvas Studios started as a web replacement for Vector CANdb++, and grew into a 
 
 1. Open **[the live app](https://sxurxbhgit.github.io/CANvas-Studios/)**
 2. Click **Open DBC** and load any `.dbc` file
-3. Switch to the **📡 Trace** view → Source: *Replay — Log file* → pick a `.asc`, `.log`, `.trc`, or Kvaser `.csv` and press **Play**
+3. Switch to the **📡 Trace** view → Source: *Replay — Log file* → pick a `.asc`, `.blf`, `.log`, `.trc`, or Kvaser `.csv` and press **Play**
 4. Click any decoded row to expand its signals
 5. Hit **📈 Plotter** to graph signals as they stream
 

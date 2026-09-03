@@ -53,6 +53,7 @@ import json
 import platform
 import sys
 import threading
+import time
 
 if platform.system() != "Windows":
     print(
@@ -154,7 +155,7 @@ class KvaserBridge:
         self.bus.send(msg)
         await self.send_json(self.websocket, {
             "type": "frame",
-            "t": msg.timestamp or 0.0,
+            "t": time.time(),
             "id": msg.arbitration_id,
             "ext": bool(msg.is_extended_id),
             "dlc": msg.dlc,
